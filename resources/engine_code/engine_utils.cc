@@ -201,19 +201,21 @@ void engine::gl_setup()
     glVertexAttribPointer(points_attrib, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*) (static_cast<const char*>(0) + (0)));
     cout << "done." << endl;
 
-    // // load up an image
-    // std::vector<unsigned char> image_data;
-    // unsigned width, height, error = lodepng::decode(image_data, width, height, std::string("input_samples/14.png").c_str());
-    // if(error) cout << "decode error: " << lodepng_error_text(error) << endl;
-    // cout << endl << endl << "Image loaded. Width: " << width << "  Height: " << height << endl;
 
-    std::string filename = std::string("input_samples/14.png");
-    if(error = m.image.load(filename.c_str()))
+    std::string filename = std::string("input_samples/22.png");
+    unsigned error;
+
+    if((error = m.in.load(filename)))
         cout << endl << endl << "decode error: " << lodepng_error_text(error);
     else
-        cout << endl << endl << "Image loaded. Width: " << m.image.width << "  Height: " << m.image.width << endl;
+        cout << endl << endl << "Image loaded. Width: " << m.in.width << "  Height: " << m.in.width << endl;
 
-    // m.tile_parse();
+    
+    m.acquire_colors();
+    m.tile_parse();
+    // m.tile_sort();
+    m.dump_tiles();
+
     
     // create the image textures
     glGenTextures(1, &display_texture);
@@ -229,7 +231,7 @@ void engine::gl_setup()
     // buffer the image data to the GPU
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_RECTANGLE, display_texture);
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA8UI, width, height, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, &image_data[0]);
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA8UI, m.in.width, m.in.height, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, &m.in.data[0]);
     glBindImageTexture(0, display_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8UI);
 
     // compute shaders, etc...
@@ -237,20 +239,267 @@ void engine::gl_setup()
 }
 
 
-
-
-static void HelpMarker(const char* desc)
+unsigned image::load(std::string filename)
 {
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered())
+    return lodepng::decode(data, width, height, filename.c_str());
+}
+
+int image::at(int x, int y)
+{
+    // if the pixel is off the image
+    if(x >= (int)width || x < 0 || y >= (int)height || y < 0)
+        return 0; // represents 'off'
+
+    // get the pixel from the image
+    int index = (y * width + x) * 4;
+    glm::ivec3 select = glm::ivec3(data[index], data[index+1], data[index+2]);
+
+    // check against palette, return index of matching color
+    for(unsigned i = 1; i < colors.size(); i++)
+        if(select == colors[i])
+            return i;
+
+    // shouldn't see this happen, but have to include for the compiler
+    return 0;
+}
+
+void image::count_colors()
+{
+    // index 0 is reserved for 'off'
+    colors.resize(1, glm::ivec3(-1));
+
+    // prime the pump with the first color (because of how the inner for-loop below operates)
+    colors.push_back(glm::ivec3(data[0], data[1], data[2]));
+
+    // get the rest of the colors in the data array
+    glm::ivec3 current;
+    for(unsigned i = 4; i < data.size(); i+=4)
     {
-        ImGui::BeginTooltip();
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-        ImGui::TextUnformatted(desc);
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
+        current = glm::ivec3(data[i], data[i+1], data[i+2]); // grab RGB, ignore alpha
+        bool seen = false;
+        
+        for(unsigned j = 1; j < colors.size(); j++)
+        {
+            if(current == colors[j])
+            {
+                seen = true; // we have already seen this color
+            }
+        }
+        
+        if(!seen)
+        {
+            colors.push_back(current); // this is a new color
+            // cout << endl << "added color " << current.x << " " << current.y << " " << current.z << endl;
+        }
     }
 }
+
+void model::acquire_colors()
+{
+    in.count_colors();
+    if(in.colors.size() > (1+MAX_COLORS)) // 0 represents 'off', followed by the list of indexed colors
+    {
+        cout << endl << endl << "Too many colors in input image. Aborting." << endl << endl;
+        abort();
+    }
+    else
+    {
+        cout << endl << endl << "Color count found " << in.colors.size()-1 << " colors." << endl << endl;
+    }
+}
+
+
+void model::tile_parse()
+{
+    // get every 3x3 neighborhood from the image - uses image.at() which internally does bounds checking
+
+    // random tiles for testing dump_tiles()
+    std::default_random_engine gen;
+    std::uniform_int_distribution<int> dist(0,in.colors.size()-1);
+
+    tile temp;
+    for(int i = 0; i < 500; i++)
+    {
+        for(int j = 0; j < 9; j++)
+        {
+            temp.data[j] = dist(gen);
+        }
+        tiles.push_back(temp);
+    }
+    
+}
+
+
+void model::tile_sort()
+{
+    //uses default, < operator, to sort the list of tiles by the number of occurrences
+    std::sort(tiles.begin(), tiles.end());
+}
+
+
+void model::dump_tiles()
+{
+    // creates an output image of all parsed tiles, in the order that they appear in the tiles vector
+    int n = 30; // how many tiles per row e.g. <tile 0> <tile 1> ... <tile n-1> then a new row starting w <tile n>
+
+    int height, width;
+    width = (4 * n) + 1;
+    height = 0;
+    
+    std::vector<unsigned char> image_data;
+    image_data.resize(0);
+    
+    for(int offset = 0; offset < tiles.size(); offset += n) // rows of tiles
+    {
+        // row of transparent pixels above these tiles (first row in image, then divider between each)
+        for(int i = 0; i < (4*width); i++) // four pixels per tile including transparent leader, four components, plus the final transparent pixel 
+            image_data.push_back(0);
+            
+        // first slice of these tiles
+        for(int i = 0; i < n; i++) //four pixels per tile {transparent, data[0], data[1], data[2]}
+        {
+            // TRANSPARENT
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+
+            if(offset+i < tiles.size())
+            {
+                // DATA[0]
+                image_data.push_back(in.colors[tiles[offset+i].data[0]].x);
+                image_data.push_back(in.colors[tiles[offset+i].data[0]].y);
+                image_data.push_back(in.colors[tiles[offset+i].data[0]].z);
+                image_data.push_back(255);
+
+                // DATA[1]
+                image_data.push_back(in.colors[tiles[offset+i].data[1]].x);
+                image_data.push_back(in.colors[tiles[offset+i].data[1]].y);
+                image_data.push_back(in.colors[tiles[offset+i].data[1]].z);
+                image_data.push_back(255);
+
+                // DATA[2]
+                image_data.push_back(in.colors[tiles[offset+i].data[2]].x);
+                image_data.push_back(in.colors[tiles[offset+i].data[2]].y);
+                image_data.push_back(in.colors[tiles[offset+i].data[2]].z);
+                image_data.push_back(255);
+            }
+            else
+            {
+                for(int j = 0; j < 12; j++)
+                    image_data.push_back(0);
+            }
+        }
+            
+        // terminate with transparent pixel
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        
+
+        // second slice of these tiles
+        for(int i = 0; i < n; i++) //four pixels per tile {transparent, data[3], data[4], data[5]}
+        {
+            // TRANSPARENT
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+
+            if(offset+i < tiles.size())
+            {
+            // DATA[3]
+            image_data.push_back(in.colors[tiles[offset+i].data[3]].x);
+            image_data.push_back(in.colors[tiles[offset+i].data[3]].y);
+            image_data.push_back(in.colors[tiles[offset+i].data[3]].z);
+            image_data.push_back(255);
+
+            // DATA[4]
+            image_data.push_back(in.colors[tiles[offset+i].data[4]].x);
+            image_data.push_back(in.colors[tiles[offset+i].data[4]].y);
+            image_data.push_back(in.colors[tiles[offset+i].data[4]].z);
+            image_data.push_back(255);
+
+            // DATA[5]
+            image_data.push_back(in.colors[tiles[offset+i].data[5]].x);
+            image_data.push_back(in.colors[tiles[offset+i].data[5]].y);
+            image_data.push_back(in.colors[tiles[offset+i].data[5]].z);
+            image_data.push_back(255);
+            }
+            else
+            {
+                for(int j = 0; j < 12; j++)
+                    image_data.push_back(0);
+            }
+        }
+            
+        // terminate with transparent pixel
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        
+        // third slice of these tiles
+        for(int i = 0; i < n; i++) //four pixels per tile {transparent, data[6], data[7], data[8]}
+        {
+            // TRANSPARENT
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+            image_data.push_back(0); 
+
+            if(offset+i < tiles.size())
+            {
+            // DATA[6]
+            image_data.push_back(in.colors[tiles[offset+i].data[6]].x);
+            image_data.push_back(in.colors[tiles[offset+i].data[6]].y);
+            image_data.push_back(in.colors[tiles[offset+i].data[6]].z);
+            image_data.push_back(255);
+
+            // DATA[7]
+            image_data.push_back(in.colors[tiles[offset+i].data[7]].x);
+            image_data.push_back(in.colors[tiles[offset+i].data[7]].y);
+            image_data.push_back(in.colors[tiles[offset+i].data[7]].z);
+            image_data.push_back(255);
+
+            // DATA[8]
+            image_data.push_back(in.colors[tiles[offset+i].data[8]].x);
+            image_data.push_back(in.colors[tiles[offset+i].data[8]].y);
+            image_data.push_back(in.colors[tiles[offset+i].data[8]].z);
+            image_data.push_back(255);
+            }
+            else
+            {
+                for(int j = 0; j < 12; j++)
+                    image_data.push_back(0);
+            }
+        }
+            
+        // terminate with transparent pixel
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        image_data.push_back(0); 
+        
+        height += 4;
+    }
+
+
+    //add final row of transparent pixels
+    height++;
+    for(int i = 0; i < (4*width); i++) // four pixels per tile including transparent leader, four components, plus the final transparent pixel 
+        image_data.push_back(0);
+
+    // dump the image data
+    std::string filename = std::string("tiles.png");
+
+    unsigned error = lodepng::encode(filename.c_str(), image_data, width, height);
+
+}
+
+
+
 
 void engine::draw_everything()
 {
@@ -286,11 +535,7 @@ void engine::draw_everything()
     ImGui::Begin("Controls", NULL, 0);
 
 
-
-    //do the other widgets
-    HelpMarker("shut up, compiler");
-
-
+    //do any widgets you want here
 
 
 
