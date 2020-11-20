@@ -202,7 +202,7 @@ void engine::gl_setup()
     cout << "done." << endl;
 
 
-    std::string filename = std::string("input_samples/22.png");
+    std::string filename = std::string("input_samples/21.png");
     unsigned error;
 
     if((error = m.in.load(filename)))
@@ -213,7 +213,7 @@ void engine::gl_setup()
     
     m.acquire_colors();
     m.tile_parse();
-    // m.tile_sort();
+    m.tile_sort();
     m.dump_tiles();
 
     
@@ -319,8 +319,15 @@ void model::tile_parse()
     tile temp;
     temp.count = 0;
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+    
     for(int x = 0; x < (int)in.width; x++)
     {
+        // clear percentage reporting
+        percent_done.str(std::string());
+        // report new percentage
+        percent_done << "Image " << (int)(((float)x/(float)in.width)*100) << " percent parsed. " << std::flush;
+
         for(int y = 0; y < (int)in.height; y++)
         {
             temp.data[0] = in.at(x-1, y-1);
@@ -338,21 +345,41 @@ void model::tile_parse()
             add_tile(temp);
         }
     }
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+    
+    cout << "\rParsing complete. Found " << tiles.size() << " distinct tiles, of a possible " << in.width*in.height << " ("
+         << ((float)tiles.size() / (float)(in.width*in.height))*100.0 << "%) in "
+         << std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count() << " seconds." << endl;
 }
 
-void model::add_tile(tile t)
+void model::add_tile(tile new_tile)
 {
-    // naiive way first
-    tiles.push_back(t);
-
-
-
+    // go through the list of tiles
+    for(auto& t : tiles)
+    {
+        // if you find the tile, increment its count, then return
+        if(new_tile == t)
+        {
+            t.count++;
+            return;
+        }
+    }
+    
+    // else, if you drop out of the loop without finding a match, push onto the back of the list
+    tiles.push_back(new_tile);
+    
+    // report new tile count
+    std::cout << "\r" << percent_done.str() << "Distinct tile count: " << tiles.size() << std::flush;
 }
 
 void model::tile_sort()
 {
     //uses default, < operator, to sort the list of tiles by the number of occurrences
     std::sort(tiles.begin(), tiles.end());
+    
+    // I want the largest count first, not last
+    std::reverse(tiles.begin(), tiles.end());
 }
 
 

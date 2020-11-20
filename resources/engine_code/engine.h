@@ -81,7 +81,8 @@ public:
 	//  3x3 pixel opaque blocks,
 	//   separated by one pixel of zero alpha
 	void dump_tiles();
-		
+
+	std::stringstream percent_done;
 };
 
 
