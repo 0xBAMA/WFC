@@ -257,7 +257,9 @@ int image::at(int x, int y)
     // check against palette, return index of matching color
     for(unsigned i = 1; i < colors.size(); i++)
         if(select == colors[i])
+        {
             return i;
+        }
 
     // shouldn't see this happen, but have to include for the compiler
     return 0;
@@ -312,23 +314,40 @@ void model::acquire_colors()
 void model::tile_parse()
 {
     // get every 3x3 neighborhood from the image - uses image.at() which internally does bounds checking
-
-    // random tiles for testing dump_tiles()
-    std::default_random_engine gen;
-    std::uniform_int_distribution<int> dist(0,in.colors.size()-1);
+    //  this will eventually also do rotations and mirrored rotations
 
     tile temp;
-    for(int i = 0; i < 500; i++)
+    temp.count = 0;
+
+    for(int x = 0; x < (int)in.width; x++)
     {
-        for(int j = 0; j < 9; j++)
+        for(int y = 0; y < (int)in.height; y++)
         {
-            temp.data[j] = dist(gen);
+            temp.data[0] = in.at(x-1, y-1);
+            temp.data[1] = in.at(  x, y-1);
+            temp.data[2] = in.at(x+1, y-1);
+            
+            temp.data[3] = in.at(x-1,   y);
+            temp.data[4] = in.at(  x,   y);
+            temp.data[5] = in.at(x+1,   y);
+
+            temp.data[6] = in.at(x-1, y+1);
+            temp.data[7] = in.at(  x, y+1);
+            temp.data[8] = in.at(x+1, y+1);
+
+            add_tile(temp);
         }
-        tiles.push_back(temp);
     }
-    
 }
 
+void model::add_tile(tile t)
+{
+    // naiive way first
+    tiles.push_back(t);
+
+
+
+}
 
 void model::tile_sort()
 {
@@ -340,7 +359,7 @@ void model::tile_sort()
 void model::dump_tiles()
 {
     // creates an output image of all parsed tiles, in the order that they appear in the tiles vector
-    int n = 30; // how many tiles per row e.g. <tile 0> <tile 1> ... <tile n-1> then a new row starting w <tile n>
+    int n = 150; // how many tiles per row e.g. <tile 0> <tile 1> ... <tile n-1> then a new row starting w <tile n>
 
     int height, width;
     width = (4 * n) + 1;

@@ -70,6 +70,10 @@ public:
 	//     eventually this will also need to rotate, mirror, etc
 	void tile_parse();
 
+	// function to add tiles
+	//   also see if the tile is a repeat, if so, increment count
+	void add_tile(tile t);
+		
 	// function to sort tiles by count
 	void tile_sort();
 		
