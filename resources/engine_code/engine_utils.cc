@@ -202,7 +202,7 @@ void engine::gl_setup()
     cout << "done." << endl;
 
 
-    int num = 27;
+    int num = 24;
     
     std::string filename = std::string("input_samples/" + std::to_string(num) + ".png");
     unsigned error;
@@ -216,10 +216,11 @@ void engine::gl_setup()
     m.acquire_colors();
     m.tile_parse();
     m.tile_sort();
-    m.dump_tiles(std::string("tile" + std::to_string(num) + ".png"));
+    // m.dump_tiles(std::string("tile" + std::to_string(num) + ".png"));
+    m.dump_tiles(std::string("tiles.png"));
 
-    m.construct_output();
-    m.collapse();
+    // m.construct_output();
+    // m.collapse();
     
     // create the image textures
     glGenTextures(1, &display_texture);
@@ -345,21 +346,26 @@ void model::tile_parse()
             temp.data[7] = in.at(  x, y+1);
             temp.data[8] = in.at(x+1, y+1);
 
-            add_tile(temp); // original
-            temp = temp.rotate();
-            add_tile(temp); // rotated 90 degrees ccw
-            temp = temp.rotate();
-            add_tile(temp); // rotated 180 degrees ccw
-            temp = temp.rotate();
-            add_tile(temp); // rotated 270 degrees ccw
-            temp = temp.mirror();
-            add_tile(temp); // mirror 
-            temp = temp.rotate();
-            add_tile(temp); // mirrored, rotated 90 degrees ccw
-            temp = temp.rotate();
-            add_tile(temp); // mirrored, rotated 180 degrees ccw
-            temp = temp.rotate();
-            add_tile(temp); // mirrored, rotated 270 degrees ccw
+            // add_tile(temp); // original
+            // add_tile(temp.rotate()); // rotated 90 degrees ccw
+            // add_tile(temp.rotate().rotate()); // rotated 180 degrees ccw
+            // add_tile(temp.rotate().rotate().rotate()); // rotated 270 degrees ccw
+            // add_tile(temp.mirror()); // mirror 
+            // add_tile(temp.mirror().rotate()); // mirrored, rotated 90 degrees ccw
+            // add_tile(temp.mirror().rotate().rotate()); // mirrored, rotated 180 degrees ccw
+            // add_tile(temp.mirror().rotate().rotate().rotate()); // mirrored, rotated 270 degrees ccw
+            switch(SYMMETRY)
+            {
+                case 8: add_tile(temp.mirror().rotate().rotate().rotate()); // mirror, three ccw rotations
+                case 7: add_tile(temp.mirror().rotate().rotate());         // mirror, two ccw rotations
+                case 6: add_tile(temp.mirror().rotate());                 // mirror, one ccw rotation
+                case 5: add_tile(temp.mirror());                         // mirrored original
+                case 4: add_tile(temp.rotate().rotate().rotate());      // three ccw rotations
+                case 3: add_tile(temp.rotate().rotate());              // two ccw rotations
+                case 2: add_tile(temp.rotate());                      // oen ccw rotation
+                case 1: add_tile(temp);                              // original
+                    break;
+            }
         }
     }
 
@@ -561,13 +567,17 @@ void model::dump_tiles(std::string filename)
 
 }
 
-void model::construct_output()
-{
-    out.resize(width); // initialize the 2d array of output tiles
-    for(auto& col : out)
-        col.resize(height, output_tile(tiles.size()));
-}
+// void model::construct_output()
+// {
+//     out.resize(width); // initialize the 2d array of output tiles
+//     for(auto& col : out)
+//         col.resize(height, output_tile(tiles.size()));
+// }
 
+void model::collapse()
+{
+    
+}
 
 
 output_tile::output_tile(int tile_count)

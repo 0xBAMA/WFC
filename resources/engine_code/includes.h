@@ -83,5 +83,6 @@ using json = nlohmann::json;
 #define WIDTH  640
 #define HEIGHT 480
 
+#define SYMMETRY 8
 
 #endif
