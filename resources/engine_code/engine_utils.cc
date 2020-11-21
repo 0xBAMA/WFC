@@ -202,20 +202,24 @@ void engine::gl_setup()
     cout << "done." << endl;
 
 
-    std::string filename = std::string("input_samples/21.png");
+    int num = 27;
+    
+    std::string filename = std::string("input_samples/" + std::to_string(num) + ".png");
     unsigned error;
 
     if((error = m.in.load(filename)))
-        cout << endl << endl << "decode error: " << lodepng_error_text(error);
+        cout << endl << "decode error: " << lodepng_error_text(error);
     else
-        cout << endl << endl << "Image loaded. Width: " << m.in.width << "  Height: " << m.in.width << endl;
+        cout << endl << "Image (" << filename << ") loaded. Width: " << m.in.width << "  Height: " << m.in.height << endl;
 
     
     m.acquire_colors();
     m.tile_parse();
     m.tile_sort();
-    m.dump_tiles();
+    m.dump_tiles(std::string("tile" + std::to_string(num) + ".png"));
 
+    m.construct_output();
+    m.collapse();
     
     // create the image textures
     glGenTextures(1, &display_texture);
@@ -234,7 +238,6 @@ void engine::gl_setup()
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA8UI, m.in.width, m.in.height, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, &m.in.data[0]);
     glBindImageTexture(0, display_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8UI);
 
-    // compute shaders, etc...
 
 }
 
@@ -342,14 +345,28 @@ void model::tile_parse()
             temp.data[7] = in.at(  x, y+1);
             temp.data[8] = in.at(x+1, y+1);
 
-            add_tile(temp);
+            add_tile(temp); // original
+            temp = temp.rotate();
+            add_tile(temp); // rotated 90 degrees ccw
+            temp = temp.rotate();
+            add_tile(temp); // rotated 180 degrees ccw
+            temp = temp.rotate();
+            add_tile(temp); // rotated 270 degrees ccw
+            temp = temp.mirror();
+            add_tile(temp); // mirror 
+            temp = temp.rotate();
+            add_tile(temp); // mirrored, rotated 90 degrees ccw
+            temp = temp.rotate();
+            add_tile(temp); // mirrored, rotated 180 degrees ccw
+            temp = temp.rotate();
+            add_tile(temp); // mirrored, rotated 270 degrees ccw
         }
     }
 
     auto t2 = std::chrono::high_resolution_clock::now();
     
-    cout << "\rParsing complete. Found " << tiles.size() << " distinct tiles, of a possible " << in.width*in.height << " ("
-         << ((float)tiles.size() / (float)(in.width*in.height))*100.0 << "%) in "
+    cout << "\rParsing complete. Found " << tiles.size() << " distinct tiles, of a possible " << 8*in.width*in.height << " ("
+         << ((float)tiles.size() / (float)(8*in.width*in.height))*100.0 << "%) in "
          << std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count() << " seconds." << endl;
 }
 
@@ -382,8 +399,7 @@ void model::tile_sort()
     std::reverse(tiles.begin(), tiles.end());
 }
 
-
-void model::dump_tiles()
+void model::dump_tiles(std::string filename)
 {
     // creates an output image of all parsed tiles, in the order that they appear in the tiles vector
     int n = 150; // how many tiles per row e.g. <tile 0> <tile 1> ... <tile n-1> then a new row starting w <tile n>
@@ -391,11 +407,11 @@ void model::dump_tiles()
     int height, width;
     width = (4 * n) + 1;
     height = 0;
-    
+   
     std::vector<unsigned char> image_data;
     image_data.resize(0);
     
-    for(int offset = 0; offset < tiles.size(); offset += n) // rows of tiles
+    for(int offset = 0; offset < (int)tiles.size(); offset += n) // rows of tiles
     {
         // row of transparent pixels above these tiles (first row in image, then divider between each)
         for(int i = 0; i < (4*width); i++) // four pixels per tile including transparent leader, four components, plus the final transparent pixel 
@@ -410,7 +426,7 @@ void model::dump_tiles()
             image_data.push_back(0); 
             image_data.push_back(0); 
 
-            if(offset+i < tiles.size())
+            if(offset+i < (int)tiles.size())
             {
                 // DATA[0]
                 image_data.push_back(in.colors[tiles[offset+i].data[0]].x);
@@ -453,7 +469,7 @@ void model::dump_tiles()
             image_data.push_back(0); 
             image_data.push_back(0); 
 
-            if(offset+i < tiles.size())
+            if(offset+i < (int)tiles.size())
             {
             // DATA[3]
             image_data.push_back(in.colors[tiles[offset+i].data[3]].x);
@@ -495,7 +511,7 @@ void model::dump_tiles()
             image_data.push_back(0); 
             image_data.push_back(0); 
 
-            if(offset+i < tiles.size())
+            if(offset+i < (int)tiles.size())
             {
             // DATA[6]
             image_data.push_back(in.colors[tiles[offset+i].data[6]].x);
@@ -538,13 +554,29 @@ void model::dump_tiles()
         image_data.push_back(0);
 
     // dump the image data
-    std::string filename = std::string("tiles.png");
+    // std::string filename = std::string("tiles.png");
 
     unsigned error = lodepng::encode(filename.c_str(), image_data, width, height);
+    if(error) cout << endl << "decode error: " << lodepng_error_text(error);
 
 }
 
+void model::construct_output()
+{
+    out.resize(width); // initialize the 2d array of output tiles
+    for(auto& col : out)
+        col.resize(height, output_tile(tiles.size()));
+}
 
+
+
+output_tile::output_tile(int tile_count)
+{
+    state = UNKNOWN;
+
+    for(int i = 0; i < tile_count; i++)
+        possible_tiles.push_back(i);
+}
 
 
 void engine::draw_everything()

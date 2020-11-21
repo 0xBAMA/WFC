@@ -33,6 +33,23 @@ struct tile
 	//    6  7  8
 	int data[9] = {0};
 
+	tile rotate()
+	{// return a counterclockwise rotated version of this tile
+		tile temp; // only used in tile_parse(), count is ignored
+		temp.data[0] = data[2]; temp.data[1] = data[5]; temp.data[2] = data[8];
+		temp.data[3] = data[1]; temp.data[4] = data[4];	temp.data[5] = data[7];
+		temp.data[6] = data[0];	temp.data[7] = data[3];	temp.data[8] = data[6];
+		return temp;
+	}
+	
+	tile mirror()
+	{// return a mirrored version of this tile	
+		tile temp;
+		temp.data[0] = data[2]; temp.data[1] = data[1];	temp.data[2] = data[0];
+		temp.data[3] = data[5]; temp.data[4] = data[4];	temp.data[5] = data[3];
+		temp.data[6] = data[8]; temp.data[7] = data[7];	temp.data[8] = data[6];
+		return temp;
+	}
 	
 	// equality operator checks all 9 ints in the data array
 	bool operator==(const tile &other) const
@@ -49,16 +66,35 @@ struct tile
 	// less than operator used for sorting (compares 'count')
 	bool operator< (const tile &other) const	
 	{
-		return this->count < other.count; 
+		if(this->count == other.count)
+			return this->data[4] < other.data[4];
+		else
+			return this->count < other.count; 
 	}
 };
 
+
+enum state_type
+{
+UNKNOWN,    // multiple colors possible
+KNOWN,     // color has been determined
+COLLAPSED // only one tile remains
+};
+
+class output_tile
+{
+public:
+	output_tile(int tile_count);
+	state_type state;
+	std::vector<int> possible_tiles;
+};
 
 
 class model
 {
 public:
-	std::vector<tile> tiles;
+
+// -- INPUT (PARSING STEP) --
 
 	image in;
 
@@ -76,13 +112,26 @@ public:
 		
 	// function to sort tiles by count
 	void tile_sort();
-		
+
+// -- MODEL VISUALIZATION --
+
 	// function to dump tiles
 	//  3x3 pixel opaque blocks,
 	//   separated by one pixel of zero alpha
-	void dump_tiles();
+	void dump_tiles(std::string filename);
 
-	std::stringstream percent_done;
+// -- OUTPUT (GENERATION STEP) --
+
+	// function to construct the output model
+	void construct_output();
+		
+	// function to collapse the output
+	void collapse();
+
+private:
+	std::stringstream percent_done; // used to 
+	std::vector<tile> tiles;
+	std::vector<std::vector<output_tile>> out;
 };
 
 
