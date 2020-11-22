@@ -202,7 +202,7 @@ void engine::gl_setup()
     cout << "done." << endl;
 
 
-    int num = 24;
+    int num = 29;
     
     std::string filename = std::string("input_samples/" + std::to_string(num) + ".png");
     unsigned error;
@@ -219,8 +219,10 @@ void engine::gl_setup()
     // m.dump_tiles(std::string("tile" + std::to_string(num) + ".png"));
     m.dump_tiles(std::string("tiles.png"));
 
-    // m.construct_output();
-    // m.collapse();
+    m.construct_output();
+    m.collapse();
+
+    m.output();
     
     // create the image textures
     glGenTextures(1, &display_texture);
@@ -238,7 +240,6 @@ void engine::gl_setup()
     glBindTexture(GL_TEXTURE_RECTANGLE, display_texture);
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA8UI, m.in.width, m.in.height, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, &m.in.data[0]);
     glBindImageTexture(0, display_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8UI);
-
 
 }
 
@@ -314,7 +315,6 @@ void model::acquire_colors()
     }
 }
 
-
 void model::tile_parse()
 {
     // get every 3x3 neighborhood from the image - uses image.at() which internally does bounds checking
@@ -346,14 +346,6 @@ void model::tile_parse()
             temp.data[7] = in.at(  x, y+1);
             temp.data[8] = in.at(x+1, y+1);
 
-            // add_tile(temp); // original
-            // add_tile(temp.rotate()); // rotated 90 degrees ccw
-            // add_tile(temp.rotate().rotate()); // rotated 180 degrees ccw
-            // add_tile(temp.rotate().rotate().rotate()); // rotated 270 degrees ccw
-            // add_tile(temp.mirror()); // mirror 
-            // add_tile(temp.mirror().rotate()); // mirrored, rotated 90 degrees ccw
-            // add_tile(temp.mirror().rotate().rotate()); // mirrored, rotated 180 degrees ccw
-            // add_tile(temp.mirror().rotate().rotate().rotate()); // mirrored, rotated 270 degrees ccw
             switch(SYMMETRY)
             {
                 case 8: add_tile(temp.mirror().rotate().rotate().rotate()); // mirror, three ccw rotations
@@ -563,20 +555,123 @@ void model::dump_tiles(std::string filename)
     // std::string filename = std::string("tiles.png");
 
     unsigned error = lodepng::encode(filename.c_str(), image_data, width, height);
-    if(error) cout << endl << "decode error: " << lodepng_error_text(error);
+    if(error) cout << endl << "encode error: " << lodepng_error_text(error);
 
 }
 
-// void model::construct_output()
-// {
-//     out.resize(width); // initialize the 2d array of output tiles
-//     for(auto& col : out)
-//         col.resize(height, output_tile(tiles.size()));
-// }
+void model::construct_output()
+{
+    out.resize(width); // initialize the 2d array of output tiles
+    for(auto& col : out)
+        col.resize(height, output_tile(tiles.size()));
+}
+
+bool model::all_collapsed()
+{
+    for(auto x : out)
+        for(auto y : x)
+            if(y.state != COLLAPSED)
+            {
+                return false;
+            }
+    // if it made it throught the loops, all tiles have been collapsed
+    return true;
+}
 
 void model::collapse()
 {
+    std::random_device rd; 
+    std::mt19937 gen(rd()); 
+
+    std::uniform_int_distribution<int> hdist(0,width); 
+    std::uniform_int_distribution<int> vdist(0,height); 
+
+    // pick a random output tile, collapse it
+    glm::ivec2 select(hdist(gen), vdist(gen));
+    collapse_cell(select.x, select.y);
+
+    while(!all_collapsed())
+    {
+        // assemble vector of lowest entropy cells
+        // pick one of these cells
+        // collapse it
+        break;
+    }
+}
+
+bool model::on_board(int x, int y)
+{
+   return (x > 0 || x <= width || y > 0 || y <= height); 
+}
+
+void model::collapse_cell(int x, int y)
+{
+    out[x][y].collapse();
+
+    // the 8 neighbors become known - because a single tile has been selected, the neighborhood exerts an influence on neighbors
+    //  keep this locally to shorten references
+    tile collapsed_tile = tiles[out[x][y].possible_tiles[0]];
+        
+    // remove tiles from neighbors which have an invalid center, considering the tile we have collapsed to
+    for(int xoff = -1; xoff <= 1; xoff++)
+    {
+        for(int yoff = -1; yoff <= 1; yoff++)
+        {
+            if(xoff == 0 && yoff == 0) continue;
+            // get the color of the cell that is in the relevant location - see tile struct definition for how indices work
+            int color = collapsed_tile.neighbor(xoff, yoff);
+            if(on_board(x+xoff, y+yoff))
+            { // if this cell is on the board, remove contradictory tiles
+                out[x+xoff][y+yoff].possible_tiles.erase(
+                    std::remove_if(out[x+xoff][y+yoff].possible_tiles.begin(),
+                                   out[x+xoff][y+yoff].possible_tiles.end(),
+                                   [this, color](int t) {return this->tiles[t].color() != color;}));
+            }
+        }
+    }
+}
+
+void model::output()
+{
+    std::vector<unsigned char> output_image;
+    glm::ivec3 temp;
     
+    for(int x = 0; x < width; x++)
+    {
+        for(int y = 0; y < height; y++)
+        {
+            if(out[x][y].possible_tiles.size() == 1)
+            {
+                // single tile remaining, output the color
+                temp = in.colors[tiles[out[x][y].possible_tiles[0]].color()]; 
+                output_image.push_back(temp.r);
+                output_image.push_back(temp.g);
+                output_image.push_back(temp.b);
+                output_image.push_back(255);
+            }
+            else
+            {
+                // average the colors of the remaining tiles
+                glm::dvec3 sum = glm::dvec3(0);
+                int count = 0;
+
+                for(auto t : out[x][y].possible_tiles)
+                {
+                    sum += glm::dvec3(in.colors[tiles[t].color()]);
+                    count++;
+                }
+
+                output_image.push_back((unsigned char) (sum.r / count));
+                output_image.push_back((unsigned char) (sum.g / count));
+                output_image.push_back((unsigned char) (sum.b / count));
+                output_image.push_back(255);
+            }
+        }
+    }
+    
+    // output the image
+    unsigned error = lodepng::encode(std::string("out.png").c_str(), output_image, width, height);
+    if(error) cout << endl << "encode error: " << lodepng_error_text(error);
 }
 
 
@@ -588,6 +683,35 @@ output_tile::output_tile(int tile_count)
         possible_tiles.push_back(i);
 }
 
+void output_tile::collapse()
+{
+    std::random_device rd; 
+    std::mt19937 gen(rd()); 
+    std::uniform_int_distribution<int> select(0, possible_tiles.size()-1);
+
+    // get a random one of the tiles that remain in the list
+    int temp = possible_tiles[select(gen)];
+
+    // collapse to that selected tile
+    possible_tiles.resize(0);
+    possible_tiles.push_back(temp);
+
+    // mark this tile as collapsed
+    state = COLLAPSED;
+}
+
+void output_tile::known(int color)
+{
+    // we know this tile is of color i, remove all tiles which do not have color i
+    // for(int i = 0; i < possible_tiles.size; i++)
+    // {
+    //     while(tiles[possible_tiles[i]].color() != color) // better than doing this as an if statement, since the next 
+    //         possible_tiles.erase(possible_tiles.begin()+(i-1));
+    // }
+
+    
+    state = KNOWN;
+}
 
 void engine::draw_everything()
 {

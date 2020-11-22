@@ -50,6 +50,35 @@ struct tile
 		temp.data[6] = data[8]; temp.data[7] = data[7];	temp.data[8] = data[6];
 		return temp;
 	}
+
+	int color()
+	{ // return index of the center pixel's color
+		return data[4];
+	}
+
+	int neighbor(int x, int y)
+	{
+		if(x == -1 && y == -1)
+			return data[0];
+		else if(x == 0 && y == -1)
+			return data[1];
+		else if(x == 1 && y == -1)
+			return data[2];
+		else if(x == -1 && y == 0)
+			return data[3];
+		else if(x == 0 && y == 0)
+			return data[4]; // this is the same as color()
+		else if(x == 1 && y == 0)
+			return data[5];
+		else if(x == -1 && y == 1)
+			return data[6];
+		else if(x == 0 && y == 1)
+			return data[7];
+		else if(x == 1 && y ==1)
+			return data[8];
+		else
+			return 0; // don't do this outside of the range
+	}	
 	
 	// equality operator checks all 9 ints in the data array
 	bool operator==(const tile &other) const
@@ -87,6 +116,9 @@ public:
 	output_tile(int tile_count);
 	state_type state;
 	std::vector<int> possible_tiles;
+
+	void collapse();
+	void known(int color);
 };
 
 
@@ -128,10 +160,27 @@ public:
 	// function to collapse the output
 	void collapse();
 
+
+	// function to dump the current state of the output
+	//   (averages remaining tiles to arrive at final pixel color)
+	void output();
+		
 private:
 	std::stringstream percent_done; // used to 
 	std::vector<tile> tiles;
 	std::vector<std::vector<output_tile>> out;
+
+	int width = 100;
+	int height = 100;
+
+	// helper function to collapse a single cell
+	void collapse_cell(int x, int y);
+
+	// helper function to simplify bounds checking
+	bool on_board(int x, int y);
+
+	// helper function to tell if all cells are collapsed
+	bool all_collapsed();
 };
 
 
