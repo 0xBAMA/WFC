@@ -325,14 +325,16 @@ void model::tile_parse()
 
     auto t1 = std::chrono::high_resolution_clock::now();
     
-    for(int x = 0; x < (int)in.width; x++)
+    // for(int x = 0; x < (int)in.width; x++)
+    for(int x = 1; x < (int)in.width-1; x++) // skipping border
     {
         // clear percentage reporting
         percent_done.str(std::string());
         // report new percentage
         percent_done << "Image " << (int)(((float)x/(float)in.width)*100) << " percent parsed. " << std::flush;
 
-        for(int y = 0; y < (int)in.height; y++)
+        // for(int y = 0; y < (int)in.height; y++)
+        for(int y = 1; y < (int)in.height-1; y++) // skipping border
         {
             temp.data[0] = in.at(x-1, y-1);
             temp.data[1] = in.at(  x, y-1);
@@ -578,24 +580,68 @@ bool model::all_collapsed()
     return true;
 }
 
+void model::lowest_entropy(std::vector<glm::ivec2> &in)
+{
+    int lowest = tiles.size();
+    in.resize(0);
+    
+    // construct the vector
+    for(int x = 0; x < width; x++)
+    {
+        for(int y = 0; y < height; y++)
+        {
+            if(out[x][y].state != COLLAPSED)
+            {
+                lowest = std::min(lowest, (int)out[x][y].possible_tiles.size());
+            }
+        }
+    }
+
+    for(int x = 0; x < width; x++)
+    {
+        for(int y = 0; y < height; y++)
+        {
+            if((int)out[x][y].possible_tiles.size() == lowest)
+            {
+                in.push_back(glm::ivec2(x, y));
+            }
+        }
+    }
+}
+
 void model::collapse()
 {
     std::random_device rd; 
     std::mt19937 gen(rd()); 
 
-    std::uniform_int_distribution<int> hdist(0,width); 
-    std::uniform_int_distribution<int> vdist(0,height); 
+    std::uniform_int_distribution<int> hdist(0,width-1); 
+    std::uniform_int_distribution<int> vdist(0,height-1); 
 
     // pick a random output tile, collapse it
     glm::ivec2 select(hdist(gen), vdist(gen));
     collapse_cell(select.x, select.y);
 
+    int count = 0;
+    
     while(!all_collapsed())
     {
+        if(count > 50)
+            break;
+        else 
+            count++;
+        
         // assemble vector of lowest entropy cells
+        std::vector<glm::ivec2> indices;
+        lowest_entropy(indices);
+        
         // pick one of these cells
-        // collapse it
-        break;
+        std::uniform_int_distribution<int> pick(0, indices.size()-1);
+        glm::ivec2 index = indices[pick(gen)];
+        
+        // collapse the cell
+        // out[index.x][index.y].collapse();
+        cout << "index is " << index.x << " " << index.y << endl;
+        collapse_cell(index.x, index.y);
     }
 }
 
@@ -617,15 +663,18 @@ void model::collapse_cell(int x, int y)
     {
         for(int yoff = -1; yoff <= 1; yoff++)
         {
+            cout << "dingo " << x+xoff << " " << y+yoff << endl; 
+
             if(xoff == 0 && yoff == 0) continue;
             // get the color of the cell that is in the relevant location - see tile struct definition for how indices work
             int color = collapsed_tile.neighbor(xoff, yoff);
+            cout << "color is " << color << std::flush << endl;
             if(on_board(x+xoff, y+yoff))
             { // if this cell is on the board, remove contradictory tiles
                 out[x+xoff][y+yoff].possible_tiles.erase(
                     std::remove_if(out[x+xoff][y+yoff].possible_tiles.begin(),
                                    out[x+xoff][y+yoff].possible_tiles.end(),
-                                   [this, color](int t) {return this->tiles[t].color() != color;}));
+                                   [this, color](int t) {cout << t << endl; return this->tiles[t].color() != color;}));
             }
         }
     }

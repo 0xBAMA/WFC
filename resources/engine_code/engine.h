@@ -181,6 +181,9 @@ private:
 
 	// helper function to tell if all cells are collapsed
 	bool all_collapsed();
+
+	// helper function to get indices of lowest entropy cells
+	void lowest_entropy(std::vector<glm::ivec2> &in);
 };
 
 
