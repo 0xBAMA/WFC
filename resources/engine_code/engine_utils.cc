@@ -621,15 +621,8 @@ void model::collapse()
     glm::ivec2 select(hdist(gen), vdist(gen));
     collapse_cell(select.x, select.y);
 
-    int count = 0;
-    
     while(!all_collapsed())
     {
-        if(count > 50)
-            break;
-        else 
-            count++;
-        
         // assemble vector of lowest entropy cells
         std::vector<glm::ivec2> indices;
         lowest_entropy(indices);
@@ -661,21 +654,20 @@ void model::collapse_cell(int x, int y)
         
     // remove tiles from neighbors which have an invalid center, considering the tile we have collapsed to
     for(int xoff = -1; xoff <= 1; xoff++)
-    {
-        for(int yoff = -1; yoff <= 1; yoff++)
-        {
-            cout << "dingo " << x+xoff << " " << y+yoff << endl; 
-
-            if((xoff == 0 && yoff == 0) || out[x][y].state == COLLAPSED) continue;
-            // get the color of the cell that is in the relevant location - see tile struct definition for how indices work
-            int color = collapsed_tile.neighbor(xoff, yoff);
-            cout << "color is " << color << std::flush << endl;
+    {   for(int yoff = -1; yoff <= 1; yoff++)
+        { // get the color of the cell that is in the relevant location - see tile struct definition for how indices work
             if(on_board(x+xoff, y+yoff))
             { // if this cell is on the board, remove contradictory tiles
+                if((xoff == 0 && yoff == 0) || out[x+xoff][y+yoff].state == COLLAPSED)
+                    continue;
+
+                int color = collapsed_tile.neighbor(xoff, yoff);
+
+                cout << "erasing with " << out[x+xoff][y+yoff].possible_tiles.size() << " remaining" << endl;
                 out[x+xoff][y+yoff].possible_tiles.erase(
                     std::remove_if(out[x+xoff][y+yoff].possible_tiles.begin(),
                                    out[x+xoff][y+yoff].possible_tiles.end(),
-                                   [this, color](int t) {cout << t << endl; return this->tiles[t].color() != color;}));
+                                   [this, color](int t) {return this->tiles[t].color() != color;}));
             }
         }
     }
