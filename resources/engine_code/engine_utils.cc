@@ -202,7 +202,7 @@ void engine::gl_setup()
     cout << "done." << endl;
 
 
-    int num = 29;
+    int num = 0;
     
     std::string filename = std::string("input_samples/" + std::to_string(num) + ".png");
     unsigned error;
@@ -601,7 +601,7 @@ void model::lowest_entropy(std::vector<glm::ivec2> &in)
     {
         for(int y = 0; y < height; y++)
         {
-            if((int)out[x][y].possible_tiles.size() == lowest)
+            if((int)out[x][y].possible_tiles.size() == lowest && out[x][y].state != COLLAPSED)
             {
                 in.push_back(glm::ivec2(x, y));
             }
@@ -641,13 +641,14 @@ void model::collapse()
         // collapse the cell
         // out[index.x][index.y].collapse();
         cout << "index is " << index.x << " " << index.y << endl;
+        output();
         collapse_cell(index.x, index.y);
     }
 }
 
 bool model::on_board(int x, int y)
 {
-   return (x > 0 || x <= width || y > 0 || y <= height); 
+   return (x >= 0 && x < width && y >= 0 && y < height); 
 }
 
 void model::collapse_cell(int x, int y)
@@ -665,7 +666,7 @@ void model::collapse_cell(int x, int y)
         {
             cout << "dingo " << x+xoff << " " << y+yoff << endl; 
 
-            if(xoff == 0 && yoff == 0) continue;
+            if((xoff == 0 && yoff == 0) || out[x][y].state == COLLAPSED) continue;
             // get the color of the cell that is in the relevant location - see tile struct definition for how indices work
             int color = collapsed_tile.neighbor(xoff, yoff);
             cout << "color is " << color << std::flush << endl;
