@@ -202,9 +202,7 @@ void engine::gl_setup()
     cout << "done." << endl;
 
 
-    int num = 0;
-    
-    std::string filename = std::string("input_samples/" + std::to_string(num) + ".png");
+    std::string filename = std::string("input_samples/" + std::to_string(m.num) + ".png");
     unsigned error;
 
     if((error = m.in.load(filename)))
@@ -397,6 +395,11 @@ void model::tile_sort()
     
     // I want the largest count first, not last
     std::reverse(tiles.begin(), tiles.end());
+
+    // just go ahead and ruin that
+    std::shuffle(tiles.begin(), tiles.end(), std::mt19937{std::random_device{}()});
+    std::shuffle(tiles.begin(), tiles.end(), std::mt19937{std::random_device{}()});
+    std::shuffle(tiles.begin(), tiles.end(), std::mt19937{std::random_device{}()});
 }
 
 void model::dump_tiles(std::string filename)
@@ -663,11 +666,19 @@ void model::collapse_cell(int x, int y)
 
                 int color = collapsed_tile.neighbor(xoff, yoff);
 
-                cout << "erasing with " << out[x+xoff][y+yoff].possible_tiles.size() << " remaining" << endl;
+                cout << "erasing with " << out[x+xoff][y+yoff].possible_tiles.size() << " remaining ... ";
+                
                 out[x+xoff][y+yoff].possible_tiles.erase(
                     std::remove_if(out[x+xoff][y+yoff].possible_tiles.begin(),
                                    out[x+xoff][y+yoff].possible_tiles.end(),
-                                   [this, color](int t) {return this->tiles[t].color() != color;}));
+                                   [this, color](int t) {return this->tiles[t].color() != color;}),
+                    out[x+xoff][y+yoff].possible_tiles.end());
+
+                
+                // std::erase_if(out[x+xoff][y+yoff].possible_tiles, // requires compilation with -std=c++2a
+                              // [this, color](int t) {return this->tiles[t].color() != color;});
+                
+                cout << "and finishing with " << out[x+xoff][y+yoff].possible_tiles.size() << " remaining" << endl;
             }
         }
     }
@@ -723,6 +734,8 @@ output_tile::output_tile(int tile_count)
 
     for(int i = 0; i < tile_count; i++)
         possible_tiles.push_back(i);
+
+    // std::iota ?
 }
 
 void output_tile::collapse()

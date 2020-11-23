@@ -127,6 +127,8 @@ class model
 public:
 
 // -- INPUT (PARSING STEP) --
+	// number of input image
+	int num = 0;
 
 	image in;
 
@@ -170,8 +172,8 @@ private:
 	std::vector<tile> tiles;
 	std::vector<std::vector<output_tile>> out;
 
-	int width = 100;
-	int height = 100;
+	int width = 35;
+	int height = 35;
 
 	// helper function to collapse a single cell
 	void collapse_cell(int x, int y);
