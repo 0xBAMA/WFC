@@ -19,9 +19,19 @@ public:
 
 #define MAX_COLORS 16 // prevents combinatoric explosion
 
-// used to represent a 3x3 neighborhood
-struct tile
+class tile;
+
+class rule
 {
+	glm::ivec2 offset;
+	std::vector<tile> agrees;
+};
+
+
+// used to represent a 3x3 neighborhood
+class tile
+{
+public:
 	// how many times have we seen this tile
 	int count = 0;
 
@@ -95,31 +105,26 @@ struct tile
 	// less than operator used for sorting (compares 'count')
 	bool operator< (const tile &other) const	
 	{
-		if(this->count == other.count)
+		// if(this->count == other.count)
 			return this->data[4] < other.data[4];
-		else
-			return this->count < other.count; 
+		// else
+			// return this->count < other.count; 
 	}
+
+	std::vector<rule> overlap_rules;
 };
 
-
-enum state_type
-{
-UNKNOWN,    // multiple colors possible
-KNOWN,     // color has been determined
-COLLAPSED // only one tile remains
-};
 
 class output_tile
 {
 public:
 	output_tile(int tile_count);
-	state_type state;
+	bool collapsed;
 	std::vector<int> possible_tiles;
 
-	void collapse();
-	void known(int color);
+	// void collapse();
 };
+
 
 
 class model
@@ -141,11 +146,7 @@ public:
 	void tile_parse();
 
 	// function to add tiles
-	//   also see if the tile is a repeat, if so, increment count
 	void add_tile(tile t);
-		
-	// function to sort tiles by count
-	void tile_sort();
 
 // -- MODEL VISUALIZATION --
 
@@ -162,7 +163,6 @@ public:
 	// function to collapse the output
 	void collapse();
 
-
 	// function to dump the current state of the output
 	//   (averages remaining tiles to arrive at final pixel color)
 	void output();
@@ -176,7 +176,7 @@ private:
 	int height = 35;
 
 	// helper function to collapse a single cell
-	void collapse_cell(int x, int y);
+	// void collapse_cell(int x, int y);
 
 	// helper function to simplify bounds checking
 	bool on_board(int x, int y);

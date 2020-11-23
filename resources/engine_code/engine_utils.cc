@@ -213,8 +213,6 @@ void engine::gl_setup()
     
     m.acquire_colors();
     m.tile_parse();
-    m.tile_sort();
-    // m.dump_tiles(std::string("tile" + std::to_string(num) + ".png"));
     m.dump_tiles(std::string("tiles.png"));
 
     m.construct_output();
@@ -256,7 +254,7 @@ int image::at(int x, int y)
     // get the pixel from the image
     int index = (y * width + x) * 4;
     glm::ivec3 select = glm::ivec3(data[index], data[index+1], data[index+2]);
-
+    
     // check against palette, return index of matching color
     for(unsigned i = 1; i < colors.size(); i++)
         if(select == colors[i])
@@ -360,47 +358,52 @@ void model::tile_parse()
             }
         }
     }
+    cout << "\rImage parsing complete, found " << tiles.size() << " tiles.                            " << endl; 
+    
 
+    // sort the tiles by color
+    //  uses default, < operator, to sort the list by color
+    std::sort(tiles.begin(), tiles.end());
+    cout << "Tiles sorted." << endl;
+
+    
+    // remove duplicate tiles
+    int orig = tiles.size();
+    // operating on a sorted list, this should be faster
+    for(int i = 0; i < (int)tiles.size(); i++)
+    {
+        for(int j = i+1; j < (int)tiles.size(); j++)
+        {
+            if(tiles[i] == tiles[j])
+            {
+                tiles[i].count++;
+                tiles.erase(tiles.begin()+j);
+                j--;
+                continue;
+            }
+        }
+        cout << "\rDuplicate removal: " << ((float)i/(float)tiles.size())*100.0 << "% complete (" << orig-tiles.size() << " tiles removed)." << std::flush;
+    }
+
+    // processing overlap rules
+    // for(int i = 0;)
+
+    
+    
     auto t2 = std::chrono::high_resolution_clock::now();
     
-    cout << "\rParsing complete. Found " << tiles.size() << " distinct tiles, of a possible " << 8*in.width*in.height << " ("
-         << ((float)tiles.size() / (float)(8*in.width*in.height))*100.0 << "%) in "
+    cout << "\rDuplicate removal complete. Parsing step found " << tiles.size() << " distinct tiles, of a possible " << SYMMETRY*in.width*in.height << " ("
+         << ((float)tiles.size() / (float)(SYMMETRY*in.width*in.height))*100.0 << "%) in "
          << std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count() << " seconds." << endl;
 }
 
 void model::add_tile(tile new_tile)
 {
-    // go through the list of tiles
-    for(auto& t : tiles)
-    {
-        // if you find the tile, increment its count, then return
-        if(new_tile == t)
-        {
-            t.count++;
-            return;
-        }
-    }
-    
-    // else, if you drop out of the loop without finding a match, push onto the back of the list
     tiles.push_back(new_tile);
     
-    // report new tile count
-    std::cout << "\r" << percent_done.str() << "Distinct tile count: " << tiles.size() << std::flush;
+    std::cout << "\r" << percent_done.str() << " Tile count: " << tiles.size() << std::flush;
 }
 
-void model::tile_sort()
-{
-    //uses default, < operator, to sort the list of tiles by the number of occurrences
-    std::sort(tiles.begin(), tiles.end());
-    
-    // I want the largest count first, not last
-    std::reverse(tiles.begin(), tiles.end());
-
-    // just go ahead and ruin that
-    std::shuffle(tiles.begin(), tiles.end(), std::mt19937{std::random_device{}()});
-    std::shuffle(tiles.begin(), tiles.end(), std::mt19937{std::random_device{}()});
-    std::shuffle(tiles.begin(), tiles.end(), std::mt19937{std::random_device{}()});
-}
 
 void model::dump_tiles(std::string filename)
 {
@@ -550,14 +553,10 @@ void model::dump_tiles(std::string filename)
         height += 4;
     }
 
-
     //add final row of transparent pixels
     height++;
     for(int i = 0; i < (4*width); i++) // four pixels per tile including transparent leader, four components, plus the final transparent pixel 
         image_data.push_back(0);
-
-    // dump the image data
-    // std::string filename = std::string("tiles.png");
 
     unsigned error = lodepng::encode(filename.c_str(), image_data, width, height);
     if(error) cout << endl << "encode error: " << lodepng_error_text(error);
@@ -575,7 +574,7 @@ bool model::all_collapsed()
 {
     for(auto x : out)
         for(auto y : x)
-            if(y.state != COLLAPSED)
+            if(!y.collapsed)
             {
                 return false;
             }
@@ -585,31 +584,31 @@ bool model::all_collapsed()
 
 void model::lowest_entropy(std::vector<glm::ivec2> &in)
 {
-    int lowest = tiles.size();
-    in.resize(0);
+    // int lowest = tiles.size();
+    // in.resize(0);
     
-    // construct the vector
-    for(int x = 0; x < width; x++)
-    {
-        for(int y = 0; y < height; y++)
-        {
-            if(out[x][y].state != COLLAPSED)
-            {
-                lowest = std::min(lowest, (int)out[x][y].possible_tiles.size());
-            }
-        }
-    }
+    // // construct the vector
+    // for(int x = 0; x < width; x++)
+    // {
+    //     for(int y = 0; y < height; y++)
+    //     {
+    //         if(!out[x][y].collapsed)
+    //         {
+    //             lowest = std::min(lowest, (int)out[x][y].possible_tiles.size());
+    //         }
+    //     }
+    // }
 
-    for(int x = 0; x < width; x++)
-    {
-        for(int y = 0; y < height; y++)
-        {
-            if((int)out[x][y].possible_tiles.size() == lowest && out[x][y].state != COLLAPSED)
-            {
-                in.push_back(glm::ivec2(x, y));
-            }
-        }
-    }
+    // for(int x = 0; x < width; x++)
+    // {
+    //     for(int y = 0; y < height; y++)
+    //     {
+    //         if((int)out[x][y].possible_tiles.size() == lowest && !out[x][y].collapsed)
+    //         {
+    //             in.push_back(glm::ivec2(x, y));
+    //         }
+    //     }
+    // }
 }
 
 void model::collapse()
@@ -622,66 +621,31 @@ void model::collapse()
 
     // pick a random output tile, collapse it
     glm::ivec2 select(hdist(gen), vdist(gen));
-    collapse_cell(select.x, select.y);
+    // collapse_cell(select.x, select.y);
 
     while(!all_collapsed())
     {
-        // assemble vector of lowest entropy cells
-        std::vector<glm::ivec2> indices;
-        lowest_entropy(indices);
+        // // assemble vector of lowest entropy cells
+        // std::vector<glm::ivec2> indices;
+        // lowest_entropy(indices);
         
-        // pick one of these cells
-        std::uniform_int_distribution<int> pick(0, indices.size()-1);
-        glm::ivec2 index = indices[pick(gen)];
+        // // pick one of these cells
+        // std::uniform_int_distribution<int> pick(0, indices.size()-1);
+        // glm::ivec2 index = indices[pick(gen)];
         
         // collapse the cell
         // out[index.x][index.y].collapse();
-        cout << "index is " << index.x << " " << index.y << endl;
-        output();
-        collapse_cell(index.x, index.y);
+        // cout << "index is " << index.x << " " << index.y << endl;
+        // output();
+        // collapse_cell(index.x, index.y);
+
+        break;
     }
 }
 
 bool model::on_board(int x, int y)
 {
    return (x >= 0 && x < width && y >= 0 && y < height); 
-}
-
-void model::collapse_cell(int x, int y)
-{
-    out[x][y].collapse();
-
-    // the 8 neighbors become known - because a single tile has been selected, the neighborhood exerts an influence on neighbors
-    //  keep this locally to shorten references
-    tile collapsed_tile = tiles[out[x][y].possible_tiles[0]];
-        
-    // remove tiles from neighbors which have an invalid center, considering the tile we have collapsed to
-    for(int xoff = -1; xoff <= 1; xoff++)
-    {   for(int yoff = -1; yoff <= 1; yoff++)
-        { // get the color of the cell that is in the relevant location - see tile struct definition for how indices work
-            if(on_board(x+xoff, y+yoff))
-            { // if this cell is on the board, remove contradictory tiles
-                if((xoff == 0 && yoff == 0) || out[x+xoff][y+yoff].state == COLLAPSED)
-                    continue;
-
-                int color = collapsed_tile.neighbor(xoff, yoff);
-
-                cout << "erasing with " << out[x+xoff][y+yoff].possible_tiles.size() << " remaining ... ";
-                
-                out[x+xoff][y+yoff].possible_tiles.erase(
-                    std::remove_if(out[x+xoff][y+yoff].possible_tiles.begin(),
-                                   out[x+xoff][y+yoff].possible_tiles.end(),
-                                   [this, color](int t) {return this->tiles[t].color() != color;}),
-                    out[x+xoff][y+yoff].possible_tiles.end());
-
-                
-                // std::erase_if(out[x+xoff][y+yoff].possible_tiles, // requires compilation with -std=c++2a
-                              // [this, color](int t) {return this->tiles[t].color() != color;});
-                
-                cout << "and finishing with " << out[x+xoff][y+yoff].possible_tiles.size() << " remaining" << endl;
-            }
-        }
-    }
 }
 
 void model::output()
@@ -730,49 +694,23 @@ void model::output()
 
 output_tile::output_tile(int tile_count)
 {
-    state = UNKNOWN;
+    collapsed = false;
 
-    for(int i = 0; i < tile_count; i++)
-        possible_tiles.push_back(i);
-
-    // std::iota ?
+    possible_tiles.resize(tile_count);
+    std::iota(possible_tiles.begin(), possible_tiles.end(), 0); // numbers 0 to tile_count
 }
 
-void output_tile::collapse()
-{
-    std::random_device rd; 
-    std::mt19937 gen(rd()); 
-    std::uniform_int_distribution<int> select(0, possible_tiles.size()-1);
-
-    // get a random one of the tiles that remain in the list
-    int temp = possible_tiles[select(gen)];
-
-    // collapse to that selected tile
-    possible_tiles.resize(0);
-    possible_tiles.push_back(temp);
-
-    // mark this tile as collapsed
-    state = COLLAPSED;
-}
-
-void output_tile::known(int color)
-{
-    // we know this tile is of color i, remove all tiles which do not have color i
-    // for(int i = 0; i < possible_tiles.size; i++)
-    // {
-    //     while(tiles[possible_tiles[i]].color() != color) // better than doing this as an if statement, since the next 
-    //         possible_tiles.erase(possible_tiles.begin()+(i-1));
-    // }
-
-    
-    state = KNOWN;
-}
+// void output_tile::collapse()
+// {
+//     // std::random_device rd; 
+//     // std::mt19937 gen(rd()); 
+//     // std::uniform_int_distribution<int> select(0, possible_tiles.size()-1);
+// }
 
 void engine::draw_everything()
 {
     ImGuiIO& io = ImGui::GetIO(); (void)io; // void cast prevents unused variable warning
     //get the screen dimensions and pass in as uniforms
-
 
     glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);   // from hsv picker
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);                     // clear the background
@@ -801,10 +739,7 @@ void engine::draw_everything()
     ImGui::SetNextWindowSize(ImVec2(256,385));
     ImGui::Begin("Controls", NULL, 0);
 
-
     //do any widgets you want here
-
-
 
     ImGui::End();
     ImGui::Render();
