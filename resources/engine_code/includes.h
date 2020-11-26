@@ -84,6 +84,7 @@ using json = nlohmann::json;
 #define WIDTH  640
 #define HEIGHT 480
 
+#define MAX_COLORS 16 // prevents combinatoric explosion
 #define SYMMETRY 8
 // #define SYMMETRY 1
 
