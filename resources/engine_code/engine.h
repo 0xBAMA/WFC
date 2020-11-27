@@ -3,6 +3,9 @@
 
 #include "includes.h"
 
+//  ╦┌┬┐┌─┐┌─┐┌─┐
+//  ║│││├─┤│ ┬├┤ 
+//  ╩┴ ┴┴ ┴└─┘└─┘
 class image
 {
 public:
@@ -17,7 +20,7 @@ public:
 };
 
 #define N 3
-#define F 46 
+#define F 0 
 
 // forward declarations
 class pattern;
@@ -25,14 +28,19 @@ class output_tile;
 class wfc;
 
 
+//  ╦═╗┬ ┬┬  ┌─┐
+//  ╠╦╝│ ││  ├┤ 
+//  ╩╚═└─┘┴─┘└─┘
 class rule
 {
 public:
 	glm::ivec2 offset;
-	std::vector<pattern> agrees;
+	std::vector<int> agrees;
 };
 
-
+//  ╔╦╗┌─┐┌┬┐┌─┐┬  
+//  ║║║│ │ ││├┤ │  
+//  ╩ ╩└─┘─┴┘└─┘┴─┘
 class model
 {
 public:
@@ -45,7 +53,9 @@ public:
 	std::vector<pattern> patterns;
 };
 
-
+//  ╔═╗┌─┐┌┬┐┌┬┐┌─┐┬─┐┌┐┌
+//  ╠═╝├─┤ │  │ ├┤ ├┬┘│││
+//  ╩  ┴ ┴ ┴  ┴ └─┘┴└─┘└┘
 class pattern
 {
 public:	
@@ -54,6 +64,10 @@ public:
 		
 	int count;
 	std::vector<std::vector<int>> data;
+
+	std::vector<rule> overlap_rules;
+	bool agrees(glm::ivec2 offset, pattern &other);
+	bool subagrees(glm::ivec2 offset, glm::ivec2 position, pattern &other);
 
 	pattern rotate();
 	pattern mirror();
@@ -80,14 +94,18 @@ public:
 	}	
 };
 
-
+//  ╔═╗┬ ┬┌┬┐┌─┐┬ ┬┌┬┐  ╔╦╗┬┬  ┌─┐
+//  ║ ║│ │ │ ├─┘│ │ │    ║ ││  ├┤ 
+//  ╚═╝└─┘ ┴ ┴  └─┘ ┴    ╩ ┴┴─┘└─┘
 class output_tile
 {
 public:	
 
 };
 
-
+//  ╦ ╦╔═╗╔═╗
+//  ║║║╠╣ ║  
+//  ╚╩╝╚  ╚═╝
 class wfc
 {
 public:

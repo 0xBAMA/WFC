@@ -279,6 +279,10 @@ void image::count_colors()
     }
 }
 
+//  ╦═╗┬ ┬┬  ┌─┐
+//  ╠╦╝│ ││  ├┤ 
+//  ╩╚═└─┘┴─┘└─┘
+
 
 
 //  ╔╦╗┌─┐┌┬┐┌─┐┬  
@@ -395,17 +399,39 @@ void model::parse_input()
     
     t1 = std::chrono::high_resolution_clock::now();
     // establish overlap rules
+
+    for(int i = 0; i < (int)patterns.size(); i++) // for each pattern
+    {
+        for(int x = -N + 1; x < N; x++)
+        {
+            for(int y = -N + 1; y < N; y++)
+            {
+                rule r;
+                r.offset = glm::ivec2(x, y);
+                r.agrees.resize(0);
+
+                for(int j = 0; j < (int)patterns.size(); j++) // for each pattern
+                {
+                    if(patterns[i].agrees(r.offset, patterns[j]))
+                    {
+                        r.agrees.push_back(j); // pattern matches, keep it
+                    }
+                }
+                patterns[i].overlap_rules.push_back(r); // all agreeing rules
+            }
+        }
+    }
     
     t2 = std::chrono::high_resolution_clock::now();
-    cout << "Overlap Rules established in " << std::chrono::duration_cast<std::chrono::milliseconds>( t2-t1 ).count() << " milliseconds." << endl;
+    cout << "\rOverlap Rules established in " << std::chrono::duration_cast<std::chrono::milliseconds>( t2-t1 ).count() << " milliseconds." << endl;
 
 
-    
-    t1 = std::chrono::high_resolution_clock::now();
+
+    // t1 = std::chrono::high_resolution_clock::now();
     // rule dump (JSON)
 
-    t2 = std::chrono::high_resolution_clock::now();
-    cout << "Rule dump completed in " << std::chrono::duration_cast<std::chrono::milliseconds>( t2-t1 ).count() << " milliseconds." << endl;
+    // t2 = std::chrono::high_resolution_clock::now();
+    // cout << "Rule dump completed in " << std::chrono::duration_cast<std::chrono::milliseconds>( t2-t1 ).count() << " milliseconds." << endl;
 
 }
 
@@ -422,54 +448,84 @@ void model::tile_dump(std::string filename)
     std::vector<unsigned char> image_data;
     image_data.resize(0);
 
-   for(int offset = 0; offset < (int)patterns.size(); offset += num) // rows of tiles
-   {
-       // row of transparent pixels above these tiles (first row in image, then divider between each)
-       for(int i = 0; i < (4*width); i++) // four pixels per tile including transparent leader, four components, plus the final transparent pixel 
-           image_data.push_back(0);
+    for(int offset = 0; offset < (int)patterns.size(); offset += num) // rows of tiles
+    {
+        // row of transparent pixels above these tiles (first row in image, then divider between each)
+        for(int i = 0; i < (4*width); i++) // four pixels per tile including transparent leader, four components, plus the final transparent pixel 
+            image_data.push_back(0);
 
-       for(int i = 0; i < N; i++) // the patterns themselves are N pixels square, these are slices
-       {
-           for(int j = 0; j < num; j++) // iterating across the width of the image
-           {
-               for(int k = 0; k < 4; k++) // first pixel is all zeroes
-                   image_data.push_back(0);
+        for(int i = 0; i < N; i++) // the patterns themselves are N pixels square, these are slices
+        {
+            for(int j = 0; j < num; j++) // iterating across the width of the image
+            {
+                for(int k = 0; k < 4; k++) // first pixel is all zeroes
+                    image_data.push_back(0);
                
-               if(offset+j < (int)patterns.size())
-               {
-                   for(int k = 0; k < N; k++) // iterating through the width of a single pattern
-                   {
-                       image_data.push_back(in.colors[patterns[offset+j].data[i][k]].x);
-                       image_data.push_back(in.colors[patterns[offset+j].data[i][k]].y);
-                       image_data.push_back(in.colors[patterns[offset+j].data[i][k]].z);
-                       image_data.push_back(255);
-                   }
-               }
-               else
-               {
-                   for(int k = 0; k < (4*N); k++)
-                       image_data.push_back(0);
-               }
-           }
+                if(offset+j < (int)patterns.size())
+                {
+                    for(int k = 0; k < N; k++) // iterating through the width of a single pattern
+                    {
+                        image_data.push_back(in.colors[patterns[offset+j].data[i][k]].x);
+                        image_data.push_back(in.colors[patterns[offset+j].data[i][k]].y);
+                        image_data.push_back(in.colors[patterns[offset+j].data[i][k]].z);
+                        image_data.push_back(255);
+                    }
+                }
+                else
+                {
+                    for(int k = 0; k < (4*N); k++) // a stripe representing a pattern's width
+                        image_data.push_back(0);
+                }
+            }
 
-           //terminate row with another transparent pixel
-           for(int j = 0; j < 4; j++)
-               image_data.push_back(0);
-       }
-       height += (N+1);
-   }
+            //terminate row with another transparent pixel
+            for(int j = 0; j < 4; j++)
+                image_data.push_back(0);
+        }
 
-   height++;
-   for(int i = 0; i < (4*width); i++)
-       image_data.push_back(0);
+        height += (N+1);
+    }
 
-   unsigned error = lodepng::encode(filename.c_str(), image_data, width, height);
-   if(error) cout << endl << "encode error: " << lodepng_error_text(error);    
+    height++; // last row of transparent pixels 
+    for(int i = 0; i < (4*width); i++)
+        image_data.push_back(0);
+
+    unsigned error = lodepng::encode(filename.c_str(), image_data, width, height);
+    if(error) cout << endl << "encode error: " << lodepng_error_text(error);    
 }
 
 //  ╔═╗┌─┐┌┬┐┌┬┐┌─┐┬─┐┌┐┌
 //  ╠═╝├─┤ │  │ ├┤ ├┬┘│││
 //  ╩  ┴ ┴ ┴  ┴ └─┘┴└─┘└┘
+bool pattern::agrees(glm::ivec2 offset, pattern &other)
+{
+    for(int x = 0; x < N; x++)
+    {
+        for(int y = 0; y < N; y++)
+        {
+            if(!subagrees(offset, glm::ivec2(x,y), other))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
+bool pattern::subagrees(glm::ivec2 offset, glm::ivec2 pos, pattern &other)
+{
+    glm::ivec2 check_pos = pos - offset;
+
+    if((pos.x < 0 || pos.x >= N || pos.y < 0 || pos.y >= N) || (check_pos.x < 0 || check_pos.x >= N || check_pos.y < 0 || check_pos.y >= N)) // either offset is out of bounds (they don't overlap here)
+    {
+        return true;
+    }
+
+    return data[pos.x][pos.y] == other.data[check_pos.x][check_pos.y];
+}
+
+
 pattern pattern::rotate()
 {
     pattern temp;
