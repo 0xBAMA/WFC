@@ -420,6 +420,7 @@ void model::parse_input()
                 patterns[i].overlap_rules.push_back(r); // all agreeing rules
             }
         }
+        cout << "\rOverlap rules " << ((float)i/(float)patterns.size())*100. << "%";
     }
     
     t2 = std::chrono::high_resolution_clock::now();
@@ -430,6 +431,8 @@ void model::parse_input()
     // t1 = std::chrono::high_resolution_clock::now();
     // rule dump (JSON)
 
+    json_dump(std::to_string(F) + ".json");
+    
     // t2 = std::chrono::high_resolution_clock::now();
     // cout << "Rule dump completed in " << std::chrono::duration_cast<std::chrono::milliseconds>( t2-t1 ).count() << " milliseconds." << endl;
 
@@ -492,6 +495,39 @@ void model::tile_dump(std::string filename)
 
     unsigned error = lodepng::encode(filename.c_str(), image_data, width, height);
     if(error) cout << endl << "encode error: " << lodepng_error_text(error);    
+}
+
+void model::json_dump(std::string filename)
+{
+    json j;
+
+    // construct the dump
+
+    // number of colors
+    j["N"] = N;
+    j["colors"]["num"] = in.colors.size();
+    
+    // indexed colors
+    for(int i = 0; i < (int)in.colors.size(); i++)
+        j["colors"][std::to_string(i)] = {in.colors[i].x, in.colors[i].y, in.colors[i].z};
+        
+    // tiles:
+    j["tiles"]["count"] = patterns.size();
+
+    for(int i = 0; i < (int)patterns.size(); i++)
+    {
+        j["tiles"][std::to_string(i)]["count"] = patterns[i].count;
+        j["tiles"][std::to_string(i)]["contents"] = patterns[i].data;
+    }
+    //    integer identifier,
+    //    count,
+    //    contents using palette index,
+    //    [offsets, agreeing tiles (integer identifiers)]
+    
+    std::ofstream ofile(filename);
+    // ofile << j.dump() << std::endl;
+    ofile << j.dump(2) << std::endl;
+    ofile.close();
 }
 
 //  ╔═╗┌─┐┌┬┐┌┬┐┌─┐┬─┐┌┐┌

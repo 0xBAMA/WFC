@@ -49,6 +49,7 @@ public:
 
 	void parse_input();
 	void tile_dump(std::string filename);
+	void json_dump(std::string filename);
 		
 	std::vector<pattern> patterns;
 };
@@ -62,7 +63,7 @@ public:
 
 	pattern(){data.resize(N); for(auto& r: data) r.resize(N);}
 		
-	int count;
+	int count = 0;
 	std::vector<std::vector<int>> data;
 
 	std::vector<rule> overlap_rules;
