@@ -335,7 +335,7 @@ void model::parse_input()
                 case 5: patterns.push_back(temp.mirror());                         // mirrored original
                 case 4: patterns.push_back(temp.rotate().rotate().rotate());      // three ccw rotations
                 case 3: patterns.push_back(temp.rotate().rotate());              // two ccw rotations
-                case 2: patterns.push_back(temp.rotate());                      // oen ccw rotation
+                case 2: patterns.push_back(temp.rotate());                      // one ccw rotation
                 case 1: patterns.push_back(temp);                              // original
                     break;
             }
@@ -518,6 +518,14 @@ void model::json_dump(std::string filename)
     {
         j["tiles"][std::to_string(i)]["count"] = patterns[i].count;
         j["tiles"][std::to_string(i)]["contents"] = patterns[i].data;
+        for(auto r : patterns[i].overlap_rules)
+        {
+            for(int k = 0; k < (int)r.agrees.size(); k++)
+            {
+                j["tiles"][std::to_string(i)]["agreement[" + std::to_string(r.offset.x) + "][" + std::to_string(r.offset.y) + "]"][std::to_string(k)] = r.agrees[k]; // the offset 
+            }
+            
+        }
     }
     //    integer identifier,
     //    count,
@@ -558,6 +566,8 @@ bool pattern::subagrees(glm::ivec2 offset, glm::ivec2 pos, pattern &other)
         return true;
     }
 
+    // do the same thing if you have a zero there (invalid palette index means incomplete relationship)
+    
     return data[pos.x][pos.y] == other.data[check_pos.x][check_pos.y];
 }
 
