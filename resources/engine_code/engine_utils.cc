@@ -207,6 +207,10 @@ void engine::gl_setup()
 
     m.parse_input();
 
+    static wfc w(&m);
+    w.init();
+    w.output(std::string("out.png"));
+    
     cout << endl << endl;
 
     
@@ -278,11 +282,6 @@ void image::count_colors()
             colors.push_back(current); // this is a new color
     }
 }
-
-//  ╦═╗┬ ┬┬  ┌─┐
-//  ╠╦╝│ ││  ├┤ 
-//  ╩╚═└─┘┴─┘└─┘
-
 
 
 //  ╔╦╗┌─┐┌┬┐┌─┐┬  
@@ -402,28 +401,28 @@ void model::parse_input()
     t1 = std::chrono::high_resolution_clock::now();
     // establish overlap rules
 
-    for(int i = 0; i < (int)patterns.size(); i++) // for each pattern (this can be parallelized)
-    {
-        for(int x = -N + 1; x < N; x++)
-        {
-            for(int y = -N + 1; y < N; y++)
-            {
-                rule r;
-                r.offset = glm::ivec2(x, y);
-                r.agrees.resize(0);
+    // for(int i = 0; i < (int)patterns.size(); i++) // for each pattern (this can be parallelized)
+    // {
+    //     for(int x = -N + 1; x < N; x++)
+    //     {
+    //         for(int y = -N + 1; y < N; y++)
+    //         {
+    //             rule r;
+    //             r.offset = glm::ivec2(x, y);
+    //             r.agrees.resize(0);
 
-                for(int j = 0; j < (int)patterns.size(); j++) // for each pattern
-                {
-                    if(patterns[i].agrees(r.offset, patterns[j]))
-                    {
-                        r.agrees.push_back(j); // pattern matches, keep it
-                    }
-                }
-                patterns[i].overlap_rules.push_back(r); // all agreeing rules
-            }
-        }
-        cout << "\rOverlap rules " << ((float)i/(float)patterns.size())*100. << "%......";
-    }
+    //             for(int j = 0; j < (int)patterns.size(); j++) // for each pattern
+    //             {
+    //                 if(patterns[i].agrees(r.offset, patterns[j]))
+    //                 {
+    //                     r.agrees.push_back(j); // pattern matches, keep it
+    //                 }
+    //             }
+    //             patterns[i].overlap_rules.push_back(r); // all agreeing rules
+    //         }
+    //     }
+    //     cout << "\rOverlap rules " << ((float)i/(float)patterns.size())*100. << "%......";
+    // }
     
     t2 = std::chrono::high_resolution_clock::now();
     cout << "\rOverlap Rules established in " << std::chrono::duration_cast<std::chrono::milliseconds>( t2-t1 ).count() << " milliseconds." << endl;
@@ -524,7 +523,8 @@ void model::json_dump(std::string filename)
         {
             for(int k = 0; k < (int)r.agrees.size(); k++)
             {
-                j["tiles"][std::to_string(i)]["agreement[" + std::to_string(r.offset.x) + "][" + std::to_string(r.offset.y) + "]"][std::to_string(k)] = r.agrees[k]; // the offset 
+                // the offset
+                j["tiles"][std::to_string(i)]["agreement[" + std::to_string(r.offset.x) + "][" + std::to_string(r.offset.y) + "]"][std::to_string(k)] = r.agrees[k]; 
             }
             
         }
@@ -609,7 +609,7 @@ output_tile::output_tile(model *input)
 
     // vector of integers, which index into the m->patterns array to identify remaining patterns
     patterns.resize(m->patterns.size());
-    std::iota(patterns.begin(), patterns.end(), 0);
+    std::iota(patterns.begin(), patterns.end(), 0); // count em out
 }
 
 int output_tile::get_entropy()
@@ -622,10 +622,26 @@ int output_tile::get_entropy()
     return sum; // the sum of counts
 }
 
-glm::vec3 output_tile::get_color()
+glm::ivec3 output_tile::get_color()
 {
-   return glm::vec3(0);
+   glm::dvec3 sum(0);
+   int count;
+
+   if(is_contradictory())
+       return glm::ivec3(255, 255, 255);
+
+   if(is_definite())
+       return m->in.colors[m->patterns[patterns[0]].data[0][0]];
+
+   // do I want to do weighting based on tile count as well?
+   
+   for(int i = 0; i < (int)patterns.size(); i++)
+       sum += m->in.colors[m->patterns[patterns[i]].data[0][0]];
+   
+   return glm::ivec3(std::floor(sum.r/(float)patterns.size()), std::floor(sum.g/(float)patterns.size()), std::floor(sum.b/(float)patterns.size()));
 }
+
+
 
 void output_tile::collapse()
 {
@@ -641,24 +657,46 @@ bool output_tile::violates(rule r)
 //  ╦ ╦╔═╗╔═╗
 //  ║║║╠╣ ║  
 //  ╚╩╝╚  ╚═╝
-void init()
+void wfc::init()
 {
-    
+    output_tile temp(m);
+
+    // careful - for example, 66k integers @ 4 bytes apiece, at 640x480, requires over 75 gigs of ram
+    wave.resize(WIDTH);
+    for(auto& w : wave)
+        w.resize(HEIGHT, temp);
 }
 
-int observe()
+int wfc::observe()
 {
     return 0;
 }
 
-void propagate()
+void wfc::propagate()
 {
     
 }
 
-void output()
+void wfc::output(std::string filename)
 {
+    std::vector<unsigned char> image_data;
+    image_data.resize(0);
     
+    for(int y = 0; y < HEIGHT; y++)
+    {
+        for(int x = 0; x < WIDTH; x++)
+        {
+            // glm::ivec3 col = glm::ivec3(0);
+            glm::ivec3 col = wave[x][y].get_color();
+            image_data.push_back(col.x);
+            image_data.push_back(col.y);
+            image_data.push_back(col.z);
+            image_data.push_back(255);
+        }
+    }
+    // cout << "outputting" << endl;
+    unsigned error = lodepng::encode(filename.c_str(), image_data, WIDTH, HEIGHT);
+    if(error) cout << endl << "encode error: " << lodepng_error_text(error);    
 }
 
 
@@ -668,10 +706,7 @@ void output()
 // main loop
 void engine::draw_everything()
 {
-
-    static wfc w(&m);
-
-    
+   
     ImGuiIO& io = ImGui::GetIO(); (void)io; // void cast prevents unused variable warning
     //get the screen dimensions and pass in as uniforms
 

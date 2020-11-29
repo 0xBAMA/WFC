@@ -20,7 +20,7 @@ public:
 };
 
 #define N 3
-#define F 8 
+#define F 14 
 
 // forward declarations
 class pattern;
@@ -106,7 +106,7 @@ public:
 	model *m; // pointer to the model
 		
 	int get_entropy(); // sum the count for all remaining tiles
-	glm::vec3 get_color(); // averages remaining tiles
+	glm::ivec3 get_color(); // averages remaining tiles
 
 	bool is_definite()      {return patterns.size() == 1;}
 	bool is_contradictory() {return patterns.size() == 0;}
@@ -137,7 +137,7 @@ public:
 
 	output_tile * at(int x, int y); // acessor with bounds checking (NULL if OOB)
 	
-	void output();
+	void output(std::string filename);
 		
 	// superposition of possible outputs
 	std::vector<std::vector<output_tile>> wave;	
