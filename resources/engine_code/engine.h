@@ -20,7 +20,7 @@ public:
 };
 
 #define N 3
-#define F 0 
+#define F 40 
 
 // forward declarations
 class pattern;
@@ -100,8 +100,21 @@ public:
 //  ╚═╝└─┘ ┴ ┴  └─┘ ┴    ╩ ┴┴─┘└─┘
 class output_tile
 {
-public:	
+public:
+	output_tile(model *input);
+	
+	model *m; // pointer to the model
+		
+	int get_entropy(); // sum the count for all remaining tiles
+	glm::vec3 get_color(); // averages remaining tiles
 
+	bool is_definite()      {return patterns.size() == 1;}
+	bool is_contradictory() {return patterns.size() == 0;}
+
+	void collapse();
+	bool violates(rule r);	
+
+	std::vector<int> patterns;
 };
 
 //  ╦ ╦╔═╗╔═╗
@@ -111,6 +124,24 @@ class wfc
 {
 public:
 
+
+	model *m;
+
+	void init(); // initialize the superposition
+		
+	// one cycle of the output
+	int step() {int res = observe(); propagate(); return res;}
+
+	int observe();
+	void propagate();
+
+	output_tile at(int x, int y); // acessor with bounds checking
+	
+	void output();
+		
+	// superposition of possible outputs
+	std::vector<std::vector<output_tile>> wave;	
+		
 };
 
 

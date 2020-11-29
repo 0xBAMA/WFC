@@ -310,14 +310,16 @@ void model::parse_input()
     auto t1 = std::chrono::high_resolution_clock::now();
     std::stringstream percent_done; 
     
-    for(int x = 0; x < (int)in.width; x++)
+    for(int x = 0; x < (int)in.width - N + 1; x++)
+    // for(int x = 0; x < (int)in.width; x++)
     {
         // clear percentage reporting
         percent_done.str(std::string());
         // report new percentage
         percent_done << "Image " << (int)(((float)x/(float)in.width)*100) << " percent parsed. " << std::flush;
 
-        for(int y = 0; y < (int)in.height; y++)
+        for(int y = 0; y < (int)in.height - N + 1; y++)
+        // for(int y = 0; y < (int)in.height; y++)
         {
             for(int i = 0; i < N; i++)
             {
@@ -400,7 +402,7 @@ void model::parse_input()
     t1 = std::chrono::high_resolution_clock::now();
     // establish overlap rules
 
-    for(int i = 0; i < (int)patterns.size(); i++) // for each pattern
+    for(int i = 0; i < (int)patterns.size(); i++) // for each pattern (this can be parallelized)
     {
         for(int x = -N + 1; x < N; x++)
         {
@@ -420,7 +422,7 @@ void model::parse_input()
                 patterns[i].overlap_rules.push_back(r); // all agreeing rules
             }
         }
-        cout << "\rOverlap rules " << ((float)i/(float)patterns.size())*100. << "%";
+        cout << "\rOverlap rules " << ((float)i/(float)patterns.size())*100. << "%......";
     }
     
     t2 = std::chrono::high_resolution_clock::now();
@@ -566,8 +568,7 @@ bool pattern::subagrees(glm::ivec2 offset, glm::ivec2 pos, pattern &other)
         return true;
     }
 
-    // do the same thing if you have a zero there (invalid palette index means incomplete relationship)
-    
+    // do the same thing if you have a zero there (invalid palette index means incomplete relationship)?
     return data[pos.x][pos.y] == other.data[check_pos.x][check_pos.y];
 }
 
@@ -603,24 +604,72 @@ pattern pattern::mirror()
 }
 
 
-
-
 //  ╔═╗┬ ┬┌┬┐┌─┐┬ ┬┌┬┐  ╔╦╗┬┬  ┌─┐
 //  ║ ║│ │ │ ├─┘│ │ │    ║ ││  ├┤ 
 //  ╚═╝└─┘ ┴ ┴  └─┘ ┴    ╩ ┴┴─┘└─┘
+output_tile::output_tile(model *input)
+{
+    m = input;
 
+    // vector of integers, which index into the m->patterns array to identify remaining patterns
+    patterns.resize(m->patterns.size());
+    std::iota(patterns.begin(), patterns.end(), 0);
+}
 
+int output_tile::get_entropy()
+{
+    int sum = 0;
 
+    for(auto tile : patterns)
+        sum += m->patterns[tile].count;
 
+    return sum; // the sum of counts
+}
+
+glm::vec3 output_tile::get_color()
+{
+   return glm::vec3(0);
+}
+
+void output_tile::collapse()
+{
+    
+}
+
+bool output_tile::violates(rule r)
+{
+    return true;
+}
 
 
 //  ╦ ╦╔═╗╔═╗
 //  ║║║╠╣ ║  
 //  ╚╩╝╚  ╚═╝
+void init()
+{
+    
+}
+
+int observe()
+{
+    
+}
+
+void propagate()
+{
+    
+}
+
+void output()
+{
+    
+}
 
 
 
- 
+
+
+// main loop
 void engine::draw_everything()
 {
     ImGuiIO& io = ImGui::GetIO(); (void)io; // void cast prevents unused variable warning
