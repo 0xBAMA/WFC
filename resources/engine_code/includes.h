@@ -85,7 +85,7 @@ using json = nlohmann::json;
 // #define WIDTH  640
 // #define HEIGHT 480
 
-#define WIDTH  150
+#define WIDTH  175
 #define HEIGHT 100
 
 #define MAX_COLORS 16 // prevents combinatoric explosion? maybe

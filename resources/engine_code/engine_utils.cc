@@ -207,9 +207,9 @@ void engine::gl_setup()
 
     m.parse_input();
 
-    static wfc w(&m);
+    w.m = &m; // pointer to the model
     w.init();
-    w.output(std::string("out.png"));
+    // w.output(std::string("out.png"));
     
     cout << endl << endl;
 
@@ -401,28 +401,28 @@ void model::parse_input()
     t1 = std::chrono::high_resolution_clock::now();
     // establish overlap rules
 
-    // for(int i = 0; i < (int)patterns.size(); i++) // for each pattern (this can be parallelized)
-    // {
-    //     for(int x = -N + 1; x < N; x++)
-    //     {
-    //         for(int y = -N + 1; y < N; y++)
-    //         {
-    //             rule r;
-    //             r.offset = glm::ivec2(x, y);
-    //             r.agrees.resize(0);
+    for(int i = 0; i < (int)patterns.size(); i++) // for each pattern (this can be parallelized)
+    {
+        for(int x = -N + 1; x < N; x++)
+        {
+            for(int y = -N + 1; y < N; y++)
+            {
+                rule r;
+                r.offset = glm::ivec2(x, y);
+                r.agrees.resize(0);
 
-    //             for(int j = 0; j < (int)patterns.size(); j++) // for each pattern
-    //             {
-    //                 if(patterns[i].agrees(r.offset, patterns[j]))
-    //                 {
-    //                     r.agrees.push_back(j); // pattern matches, keep it
-    //                 }
-    //             }
-    //             patterns[i].overlap_rules.push_back(r); // all agreeing rules
-    //         }
-    //     }
-    //     cout << "\rOverlap rules " << ((float)i/(float)patterns.size())*100. << "%......";
-    // }
+                for(int j = 0; j < (int)patterns.size(); j++) // for each pattern
+                {
+                    if(patterns[i].agrees(r.offset, patterns[j]))
+                    {
+                        r.agrees.push_back(j); // pattern matches, keep it
+                    }
+                }
+                patterns[i].overlap_rules.push_back(r); // all agreeing rules
+            }
+        }
+        cout << "\rOverlap rules " << ((float)i/(float)patterns.size())*100. << "%......";
+    }
     
     t2 = std::chrono::high_resolution_clock::now();
     cout << "\rOverlap Rules established in " << std::chrono::duration_cast<std::chrono::milliseconds>( t2-t1 ).count() << " milliseconds." << endl;
@@ -645,11 +645,39 @@ glm::ivec3 output_tile::get_color()
 
 void output_tile::collapse()
 {
+    std::default_random_engine gen;
+    std::uniform_int_distribution<int> dist(0,get_entropy());  
+
+    int e = dist(gen);
+    int temp = 0;
+    for(int i = 0; i < patterns.size(); i++)
+    {
+        // this effectively weights the patterns
+        e -= m->patterns[patterns[i]].count;
+        if(e <= 0)
+        {
+            temp = patterns[i];
+            break;
+        }
+    }
     
+    patterns.resize(0);
+    patterns.push_back(temp);
 }
 
 bool output_tile::violates(rule r)
 {
+    for(int i = 0; i < rule.agrees.size(); i++)
+    {
+        int pat = rules.agrees[i];
+        for(int j = 0; j < patterns.size())
+        {
+            if(pat == patterns[j])
+            {// does not violate
+                return false;
+            }
+        }
+    }
     return true;
 }
 
@@ -669,7 +697,70 @@ void wfc::init()
 
 int wfc::observe()
 {
+    // construct list of optimal tiles (these are those with the lowest entropy)
+    std::vector<glm::ivec2> optimals;
+    int low = -1;
+    for(int y = 0; y < HEIGHT; y++)
+    {
+        for(int x = 0; x < WIDTH; x++)
+        {
+            glm::ivec2 position(x,y);
+            int entropy = at(position)->get_entropy();
+
+            if(at(position)->is_definite()) continue;
+
+            if(low == -1 || entropy < low)
+            {
+                low = entropy;
+                optimals.resize(0);
+            }
+            if(entropy == low)
+            {
+                optimals.push_back(position);
+            }
+        }
+    }
+    
+    if((int)optimals.size() <= 0)
+        return 1; //done
+    else if(at(optimals[0])->is_contradictory())
+        return -1; // reached a contradiction
+
+    // grab one of the ivec2s and collapse it
+    std::default_random_engine gen;
+    std::uniform_int_distribution<int> dist(0,(int)optimals.size()-1); 
+
+    glm::ivec2 position = optimals[dist(gen)];
+    at(position)->collapse();
+
+    // add neighbors to update list
+    for(int x = -N + 1; x < N; x++)
+    {
+        for(int y = -N + 1; y < N; y++)
+        {
+            glm::ivec2 offset = position + glm::ivec2(x,y);
+            bool outofboundscheck = offset.x < 0 || offset.x >= WIDTH || offset.y < 0 || offset.y >= HEIGHT;
+
+            // off board, definite, and contradictory cells are not considered
+            if(outofboundscheck) continue;
+            if(at(offset)->is_definite() || at(offset)->is_contradictory()) continue;
+
+            updates.push_back(offset);
+        }
+    }
+    
+    // when finished, return 0 (ok)
     return 0;
+}
+
+output_tile * wfc::at(glm::ivec2 i)
+{
+    if(i.x < 0 || i.x >= WIDTH || i.y < 0 || i.y >= HEIGHT)
+    {
+        return NULL;
+    }
+
+    return &wave[i.x][i.y];
 }
 
 void wfc::propagate()

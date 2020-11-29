@@ -20,7 +20,7 @@ public:
 };
 
 #define N 3
-#define F 14 
+#define F 0 
 
 // forward declarations
 class pattern;
@@ -123,8 +123,6 @@ public:
 class wfc
 {
 public:
-	wfc(model *in) {m = in;}
-
 	model *m;
 
 	void init(); // initialize the superposition
@@ -135,13 +133,15 @@ public:
 	int observe();
 	void propagate();
 
-	output_tile * at(int x, int y); // acessor with bounds checking (NULL if OOB)
+	output_tile * at(glm::ivec2 i); // acessor with bounds checking (NULL if OOB)
 	
 	void output(std::string filename);
 		
 	// superposition of possible outputs
 	std::vector<std::vector<output_tile>> wave;	
-		
+	
+	// vector of addresses that need to be updated
+	std::vector<glm::ivec2> updates;
 };
 
 
@@ -153,6 +153,7 @@ public:
 	~engine();
 
 	model m;
+	wfc w;
 
 private:
 
