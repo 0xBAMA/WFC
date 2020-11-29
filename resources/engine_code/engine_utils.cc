@@ -433,7 +433,7 @@ void model::parse_input()
     // t1 = std::chrono::high_resolution_clock::now();
     // rule dump (JSON)
 
-    json_dump(std::to_string(F) + ".json");
+    // json_dump(std::to_string(F) + ".json"); // this becomes unusable very, very quickly - small inputs only 
     
     // t2 = std::chrono::high_resolution_clock::now();
     // cout << "Rule dump completed in " << std::chrono::duration_cast<std::chrono::milliseconds>( t2-t1 ).count() << " milliseconds." << endl;
@@ -529,10 +529,6 @@ void model::json_dump(std::string filename)
             
         }
     }
-    //    integer identifier,
-    //    count,
-    //    contents using palette index,
-    //    [offsets, agreeing tiles (integer identifiers)]
     
     std::ofstream ofile(filename);
     // ofile << j.dump() << std::endl;
@@ -652,7 +648,7 @@ void init()
 
 int observe()
 {
-    
+    return 0;
 }
 
 void propagate()
@@ -672,6 +668,10 @@ void output()
 // main loop
 void engine::draw_everything()
 {
+
+    static wfc w(&m);
+
+    
     ImGuiIO& io = ImGui::GetIO(); (void)io; // void cast prevents unused variable warning
     //get the screen dimensions and pass in as uniforms
 

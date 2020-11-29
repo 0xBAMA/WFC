@@ -20,7 +20,7 @@ public:
 };
 
 #define N 3
-#define F 40 
+#define F 8 
 
 // forward declarations
 class pattern;
@@ -123,7 +123,7 @@ public:
 class wfc
 {
 public:
-
+	wfc(model *in) {m = in;}
 
 	model *m;
 
@@ -135,7 +135,7 @@ public:
 	int observe();
 	void propagate();
 
-	output_tile at(int x, int y); // acessor with bounds checking
+	output_tile * at(int x, int y); // acessor with bounds checking (NULL if OOB)
 	
 	void output();
 		
@@ -152,6 +152,8 @@ public:
 	engine();
 	~engine();
 
+	model m;
+
 private:
 
 	SDL_Window * window;
@@ -163,9 +165,7 @@ private:
 	GLuint display_shader;
 	GLuint display_vao;
 	GLuint display_vbo;
-
-	model m;
-		
+	
 	void create_window();
 	void gl_setup();
 	void draw_everything();
