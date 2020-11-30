@@ -625,7 +625,6 @@ int output_tile::get_entropy()
 glm::ivec3 output_tile::get_color()
 {
    glm::dvec3 sum(0);
-   int count;
 
    if(is_contradictory())
        return glm::ivec3(255, 255, 255);
@@ -634,6 +633,7 @@ glm::ivec3 output_tile::get_color()
        return m->in.colors[m->patterns[patterns[0]].data[0][0]];
 
    // do I want to do weighting based on tile count as well?
+   // int count;
    
    for(int i = 0; i < (int)patterns.size(); i++)
        sum += m->in.colors[m->patterns[patterns[i]].data[0][0]];
@@ -650,7 +650,7 @@ void output_tile::collapse()
 
     int e = dist(gen);
     int temp = 0;
-    for(int i = 0; i < patterns.size(); i++)
+    for(int i = 0; i < (int)patterns.size(); i++)
     {
         // this effectively weights the patterns
         e -= m->patterns[patterns[i]].count;
@@ -667,10 +667,10 @@ void output_tile::collapse()
 
 bool output_tile::violates(rule r)
 {
-    for(int i = 0; i < rule.agrees.size(); i++)
+    for(int i = 0; i < (int)r.agrees.size(); i++)
     {
-        int pat = rules.agrees[i];
-        for(int j = 0; j < patterns.size())
+        int pat = r.agrees[i];
+        for(int j = 0; j < (int)patterns.size(); j++)
         {
             if(pat == patterns[j])
             {// does not violate
@@ -688,6 +688,7 @@ bool output_tile::violates(rule r)
 void wfc::init()
 {
     output_tile temp(m);
+    wave.resize(0);
 
     // careful - for example, 66k integers @ 4 bytes apiece, at 640x480, requires over 75 gigs of ram
     wave.resize(WIDTH);
@@ -765,7 +766,26 @@ output_tile * wfc::at(glm::ivec2 i)
 
 void wfc::propagate()
 {
-    
+    while(updates.size() > 0)
+    {
+        // for propagation
+        bool dirty = false;
+        
+        // location to be updated, pop from list
+        glm::ivec2 pos = updates[0];
+        updates.erase(updates.begin());
+        
+        for(int i = 0; i < at(pos)->patterns.size(); i++)
+        {
+            // get the pattern
+            pattern p = m->patterns[at(pos)->patterns[i]];
+
+            // keeps track of whether a pattern violates a rule
+            bool legit = true;
+
+            
+        }
+    }
 }
 
 void wfc::output(std::string filename)
