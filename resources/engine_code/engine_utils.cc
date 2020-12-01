@@ -213,7 +213,17 @@ void engine::gl_setup()
     
     cout << endl << endl;
 
-    
+    int i = 0, j = 0;
+
+    while(true)
+    {
+        i = w.step();
+        if(i == 1 || i == -1)
+            break;
+        cout << "dingu " << j++ << endl;
+    }
+
+    w.output(std::string("out.png"));
     
     // create the image textures
     glGenTextures(1, &display_texture);
@@ -768,14 +778,14 @@ void wfc::propagate()
 {
     while(updates.size() > 0)
     {
-        // for propagation
+        // for propagation (marks the removal of a pattern)
         bool dirty = false;
         
         // location to be updated, pop from list
         glm::ivec2 pos = updates[0];
         updates.erase(updates.begin());
         
-        for(int i = 0; i < at(pos)->patterns.size(); i++)
+        for(int i = 0; i < (int)at(pos)->patterns.size(); i++)
         {
             // get the pattern
             pattern p = m->patterns[at(pos)->patterns[i]];
@@ -783,7 +793,47 @@ void wfc::propagate()
             // keeps track of whether a pattern violates a rule
             bool legit = true;
 
-            
+            // for each ruleset for the pattern
+            for(int j = 0; j < (int)p.overlap_rules.size(); j++)
+            {
+                rule r = p.overlap_rules[j];
+                if(at(pos+r.offset) != NULL)
+                { // on board
+                    if(at(pos+r.offset)->violates(r))
+                    {
+                        legit = false;
+                        break; // break out of rules loop (j)
+                    }
+                }
+            }
+            if(!legit)
+            {
+                // remove the pattern
+                at(pos)->patterns.erase(at(pos)->patterns.begin()+i);
+                dirty = true;
+                i--;
+            }
+        }
+        if(dirty)
+        {
+            for(int x = -N + 1; x < N; x++)
+            {
+                for(int y = -N + 1; y < N; y++)
+                {
+                    glm::ivec2 offset = pos+glm::ivec2(x,y);
+                    if(at(offset)==NULL)
+                    {
+                        continue;
+                    }
+                    // tile exists, check state
+                    if(at(offset)->is_definite() || at(offset)->is_contradictory())
+                    {
+                        continue;
+                    }
+                    // if not definite and not contradictory, it needs to be updated
+                    updates.push_back(offset);
+                }
+            }
         }
     }
 }

@@ -19,8 +19,17 @@ public:
 	std::vector<glm::ivec3> colors; // only doing RGB
 };
 
-#define N 3
-#define F 0 
+
+#define MAX_COLORS 16 // prevents combinatoric explosion? maybe
+#define SYMMETRY 1
+
+#define N 2
+#define F 10 
+
+// output
+#define WIDTH  40
+#define HEIGHT 20
+
 
 // forward declarations
 class pattern;
