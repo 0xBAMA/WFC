@@ -221,9 +221,13 @@ void engine::gl_setup()
         if(i == 1 || i == -1)
             break;
         cout << "dingu " << j++ << endl;
+        if(j%5 == 0)
+        {
+            w.output(std::string("frames2/" + std::to_string(j/5) + ".png"));
+        }
     }
 
-    w.output(std::string("out.png"));
+    w.output(std::string("frames2/out.png"));
     
     // create the image textures
     glGenTextures(1, &display_texture);
@@ -656,7 +660,7 @@ glm::ivec3 output_tile::get_color()
 void output_tile::collapse()
 {
     std::default_random_engine gen;
-    std::uniform_int_distribution<int> dist(0,get_entropy());  
+    std::uniform_int_distribution<int> dist(0,get_entropy()-1);  
 
     int e = dist(gen);
     int temp = 0;

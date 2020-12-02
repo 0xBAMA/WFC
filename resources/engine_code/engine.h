@@ -21,14 +21,14 @@ public:
 
 
 #define MAX_COLORS 16 // prevents combinatoric explosion? maybe
-#define SYMMETRY 1
+#define SYMMETRY 8
 
 #define N 2
-#define F 10 
+#define F 23
 
 // output
-#define WIDTH  40
-#define HEIGHT 20
+#define WIDTH  85
+#define HEIGHT 50
 
 
 // forward declarations
